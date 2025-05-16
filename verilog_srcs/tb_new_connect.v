@@ -178,7 +178,7 @@ assign slot_not_occupied_alu = (counters_and_address[idx_slot_alu][8:8]==1'b0) ?
 assign slot_occupied_alu = ! slot_not_occupied_alu;
 
 // output logic: 
-assign branch_taken_out = (slot_hit_fe) ? counters_and_address[idx_slot_alu][10:10] : 1'b0;
+assign branch_taken_out = (slot_hit_fe) ? counters_and_address[idx_slot_fe][10:10] : 1'b0;
 
 always @(posedge clk or posedge rst) begin
     if (rst) begin
@@ -883,16 +883,16 @@ rst = 1;
 // expected results: 3, 5, 37(0x25), 9, 11(0xB), 13(0xD)
 
 // instruction initial values (test repetitive jump instructions)
-u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] 
-u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
-u_mem.mem[2] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]
+u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] reg[0] = 0xF
+u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]  reg[0] = 2+0xF = 0x11
+u_mem.mem[2] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]  reg[0] = 0x11+3 = 0x14
 u_mem.mem[3] = 32'b0100_0000_0001_0000_0000_0000_0000_0000; // jump to instruction 8 (unconditional jump)
 u_mem.mem[4] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]    
 u_mem.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]
-u_mem.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000; // reg[0] <= memory[0] (store)
-u_mem.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100; // jump to instruction 2 if equal
+u_mem.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000; // reg[0] => memory[0] (store)  memory[0] = 0x14
+u_mem.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100; // jump to instruction 2 if equal  
 u_mem.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
 u_mem.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
