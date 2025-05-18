@@ -281,7 +281,7 @@ assign micro_code_addr_out =
     (instr[31:24]== 8'b00010001) ? 8'b0000_1000 : // add, first source operand is from memory
    // (instr[31:24] == 8'b10000000) ? 8'b0000_0001 : // load
     (instr[31:24] == 8'b00000011) ? 8'b0000_0010 : // add
-    (instr[31:24] == 8'b00000100) ? 8'b0000_0011 : // sub
+    (instr[31:24] == 8'b00000010) ? 8'b0000_0001 : // sub
     (instr[31:24] == 8'b00000101) ? 8'b0000_0100 : // jmpgez
     (instr[31:24] == 8'b10000000) ? 8'b0001_1101 :  // load
     (instr[31:24] == 8'b10000001) ? 8'b0010_0000 : // store
@@ -350,6 +350,7 @@ wire [7:0] micro_code_addr_in;
 wire [31:0] micro_code_out;
 wire [7:0] instr_address_not_taken_de_cu;
 wire [7:0] instr_address_not_taken_cu_alu;
+wire [31:0] instruction_normal;
 reg [7:0] micro_code_addr_reg;
 reg [2:0] micro_code_cnt_reg;
 reg [7:0] micro_code_addr_speculative_fetch_reg;
@@ -359,6 +360,7 @@ reg [7:0] instr_address_not_taken_reg;
 reg [7:0] branch_instr_address_reg;
 reg [0:0] branch_prediction_result_reg;
 reg [0:0] exec_combined_reg;
+reg [31:0] instruction_normal_reg;
 assign instr_address_not_taken_cu_alu = instr_address_not_taken_reg;
 assign micro_code_addr_out = micro_code_addr_reg;
 assign micro_code_addr_speculative_fetch = micro_code_addr_speculative_fetch_reg;
@@ -366,9 +368,12 @@ assign micro_code_addr_speculative_fetch = micro_code_addr_speculative_fetch_reg
 assign branch_instr_address_cu_alu = branch_instr_address_reg;
 assign branch_prediction_result_cu_alu = branch_prediction_result_reg;
 assign instr_cu_out = cu_instruction_reg;
+assign instruction_normal = instruction_normal_reg;
 assign o_exec_ready_normal = (micro_code_cnt_reg==3'b0) ? 1'b1 : 1'b0;  
 judge_not_conflict_speculative_fetch u_judge_not_conflict_speculative_fetch (.micro_code_normal(micro_code_in_normal),
                                                                              .micro_code_speculative(micro_code_in_speculative),
+                                                                             .instruction_normal(instruction_normal),
+                                                                             .instruction_speculative(instr_cu_out),
                                                                              .is_micro_code_not_conflict(o_exec_ready_speculative_fetch));
 // assign o_exec_ready_speculative_fetch = 
 // ~| (micro_code_in_speculative[15:0] & micro_code_in_normal[15:0]);  // NEEDS REASSIGN VALUE TO MICRO_CODE_OUT!!
@@ -384,6 +389,7 @@ begin
         micro_code_cnt_reg <= 3'b0;
         micro_code_addr_reg <= 8'b1111_1111;
         cu_instruction_reg <= 32'b0;
+        instruction_normal_reg <= 32'b0;
         instr_address_not_taken_reg <= 8'b0;
         branch_instr_address_reg <= 8'b0;
         branch_prediction_result_reg <= 1'b0;
@@ -399,6 +405,10 @@ begin
         branch_instr_address_reg <= branch_instr_address_de_cu;
         branch_prediction_result_reg <= branch_prediction_result_de_cu;
         micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;  // when normal cu is executing an instruction with single micro-instruction, speculative fetch is not required.
+    end
+    if (micro_code_cnt_reg ==0 && (!flush_pipeline))
+    begin
+        instruction_normal_reg <= instr_cu_in;
     end
     if (micro_code_cnt_reg > 0)
     begin
@@ -433,12 +443,20 @@ endmodule
 module judge_not_conflict_speculative_fetch (
     input [31:0] micro_code_normal,
     input [31:0] micro_code_speculative,
+    input [31:0] instruction_normal,
+    input [31:0] instruction_speculative,
     output is_micro_code_not_conflict
 );
 wire is_micro_code_conflict;
+wire is_micro_code_dependent;
 assign is_micro_code_conflict = (| (micro_code_speculative[31:0] & micro_code_normal[31:0])) ? 1'b1:
                                  (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
-assign is_micro_code_not_conflict = ~is_micro_code_conflict;
+
+// data dependency occurs when the source operand of the prefetched instruction 
+// equals the destination operand of the multiple-period instruction
+assign is_micro_code_data_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
+
+assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_data_dependent);
 endmodule
 
 
@@ -784,6 +802,8 @@ wire [0:0] write_en_regfile;
 wire [7:0] register_file_addr_dest;
 wire [15:0] mem_regfile_test;
 wire [15:0] mem_external_test;
+wire [15:0] mem_regfile_test1;
+wire [15:0] mem_external_test1;
 wire [0:0] branch_prediction_failed;
 wire [0:0] flush_pipeline; // flush pipeline when branch prediction fails
 wire [7:0] instr_address_not_taken_alu_fe;
@@ -973,19 +993,37 @@ rst = 1;
 // u_mem.mem[10] = 32'b0000_0001_0000_1000_0000_0111_0000_0000; // reg[8] + reg[7]
 // expected results: 3, 5, 37(0x25), 9, 11(0xB), 13(0xD)
 
-// instruction initial values (test repetitive jump instructions)
-// u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] reg[0] = 0xF
-u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010; // load from memory[8](0xF) to reg[2] reg[2] = 0xF
-u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]  reg[0] = 2+0xF = 0x11
-// out of order execution: reg[0]=3
-u_mem.mem[2] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]  reg[0] = 0x11+3 = 0x14
-// 0xF + 3 = 0x12
-u_mem.mem[3] = 32'b0100_0000_0001_0000_0000_0000_0000_0000; // jump to instruction 8 (unconditional jump)
-u_mem.mem[4] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
+// // instruction initial values (test repetitive jump instructions)
+// // u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] reg[0] = 0xF
+// u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010; // load from memory[8](0xF) to reg[2] reg[2] = 0xF
+// u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]  reg[0] = 2+0xF = 0x11
+// // out of order execution: reg[0]=3
+// u_mem.mem[2] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]  reg[0] = 0x11+3 = 0x14
+// // 0xF + 3 = 0x12
+// u_mem.mem[3] = 32'b0100_0000_0001_0000_0000_0000_0000_0000; // jump to instruction 8 (unconditional jump)
+// u_mem.mem[4] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
+// u_mem.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]    
+// u_mem.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
+// u_mem.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]
+// u_mem.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000; // reg[0] => memory[0] (store)  memory[0] = 0x14
+// u_mem.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100; // jump to instruction 2 if equal  
+// u_mem.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
+// u_mem.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
+// u_mem.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
+// u_mem.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
+
+// for testing speculative fetch and out-of-order completion
+u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[2] reg[2] = 0xF
+u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]: reg[0] = 1+2=3
+u_mem.mem[2] = 32'b0000_0010_0000_0010_0000_0000_0000_0000; // reg[0] <= reg[2] - reg[0]: reg[0] = 0xF-3 = 0xC
+u_mem.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001; // reg[1] <= reg[0] + reg[8]: reg[1] = 0xC + 0xA = 0x16
+
+u_mem.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000; // jump to instruction 8 (unconditional jump)
+// u_mem.mem[4] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]    
 u_mem.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]
-u_mem.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000; // reg[0] => memory[0] (store)  memory[0] = 0x14
+u_mem.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000; // reg[0] => memory[0] (store)  memory[0] = 0xC
 u_mem.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100; // jump to instruction 2 if equal  
 u_mem.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]
 u_mem.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
@@ -1049,7 +1087,7 @@ u_register_file.mem[17] = 16'b0000_0000_0001_0011;
 
 // Source operand is in register file , destination operand is in register file
 u_micro_instr_mem.mem[0] = 16'b0001_0000_1100_0001; // add rd, rs1, rs2
-u_micro_instr_mem.mem[1] = 16'b0010_0000_1100_0000; // sub
+u_micro_instr_mem.mem[1] = 16'b0010_0000_1100_0001; // sub
 u_micro_instr_mem.mem[2] = 16'b0011_0000_1100_0000; // slt
 u_micro_instr_mem.mem[3] = 16'b0100_0000_1100_0000; // and
 u_micro_instr_mem.mem[4] = 16'b0101_0000_1100_0000; // or
@@ -1121,10 +1159,12 @@ end
 
 // for test
 assign mem_micro_instr_test = u_micro_instr_mem.mem[29];
+assign mem_external_test1 = u_external_mem.mem[1];
+assign mem_regfile_test1 = u_register_file.mem[1];
 
 // 波形记录（支持iverilog）
 initial begin
-    $dumpfile("wave.vcd");
+    $dumpfile("wave.vcd"); 
     $dumpvars(0, tb);
     #2500
     $finish;
