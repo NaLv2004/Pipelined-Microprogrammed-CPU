@@ -231,7 +231,7 @@ module idecode (
     input   [7:0]  branch_instr_address_fe_de,
     input         branch_prediction_result_fe_de,
     output        dec_ready,
-    output [15:0]  micro_code,
+    output [31:0]  micro_code,
     
     // 象征性译码输出
     output [2:0]  opcode,
@@ -327,14 +327,14 @@ module cu (
     input rst,
     input [7:0] micro_code_addr_in,
     input [2:0] micro_code_cnt_in,  // n of micro code for this instruction
-    input [15:0] micro_code_in_normal,  // REASSIGN
-    input [15:0] micro_code_in_speculative,  // REASSIGN
+    input [31:0] micro_code_in_normal,  // REASSIGN
+    input [31:0] micro_code_in_speculative,  // REASSIGN
     input [31:0] instr_cu_in,
     input flush_pipeline,
     output [7:0] micro_code_addr_out,
-    output [15:0] micro_code_out,
+    output [31:0] micro_code_out,
     output [7:0] micro_code_addr_speculative_fetch,  // REASSIGN
-    output [15:0] micro_code_speculative_fetch, // REASSIGN
+    output [31:0] micro_code_speculative_fetch, // REASSIGN
     output o_exec_ready_normal,  // CU is ready to receive new micro-code address from the decoder.
     output [31:0] instr_cu_out,
     input [7:0] instr_address_not_taken_de_cu,
@@ -347,13 +347,13 @@ module cu (
 );
 wire clk;
 wire [7:0] micro_code_addr_in;
-wire [15:0] micro_code_out;
+wire [31:0] micro_code_out;
 wire [7:0] instr_address_not_taken_de_cu;
 wire [7:0] instr_address_not_taken_cu_alu;
 reg [7:0] micro_code_addr_reg;
 reg [2:0] micro_code_cnt_reg;
 reg [7:0] micro_code_addr_speculative_fetch_reg;
-reg [15:0] micro_code_speculative_fetch_reg;
+reg [31:0] micro_code_speculative_fetch_reg;
 reg [31:0] cu_instruction_reg;
 reg [7:0] instr_address_not_taken_reg;
 reg [7:0] branch_instr_address_reg;
@@ -421,8 +421,8 @@ module speculative_micro_instruction_fetch (
     input clk,
     input rst,
     input exec_ready_normal_cu,
-    input [15:0] micro_code_normal_cu,
-    output [15:0] micro_code_speculative_fetch,
+    input [31:0] micro_code_normal_cu,
+    output [31:0] micro_code_speculative_fetch,
     output is_micro_code_conflict,
     output exec_ready_speculative_fetch
 );
@@ -431,12 +431,12 @@ endmodule
 
 
 module judge_not_conflict_speculative_fetch (
-    input [15:0] micro_code_normal,
-    input [15:0] micro_code_speculative,
+    input [31:0] micro_code_normal,
+    input [31:0] micro_code_speculative,
     output is_micro_code_not_conflict
 );
 wire is_micro_code_conflict;
-assign is_micro_code_conflict = (| (micro_code_speculative[15:0] & micro_code_normal[15:0])) ? 1'b1:
+assign is_micro_code_conflict = (| (micro_code_speculative[31:0] & micro_code_normal[31:0])) ? 1'b1:
                                  (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
 assign is_micro_code_not_conflict = ~is_micro_code_conflict;
 endmodule
@@ -450,7 +450,7 @@ endmodule
 module alu (
 input clk,
 input [31:0] instruction, 
-input [15:0] micro_code,
+input [31:0] micro_code,
 input [15:0] alu_regfile_in_1, // opcode 1 from regiester file
 input [15:0] alu_regfile_in_2, // opcode 2 from register file
 input [15:0] alu_memory_in,
@@ -474,7 +474,7 @@ output [0:0] branch_taken_alu_fe
 // input and output ports
 wire clk;
 wire [31:0] instruction;
-wire [15:0] micro_code;
+wire [31:0] micro_code;
 wire [15:0] alu_result;
 wire [15:0] alu_regfile_in_1;
 wire [15:0] alu_regfile_in_2;
@@ -495,14 +495,18 @@ wire alu_judge_equal_result;
 
 
 reg[15:0] alu_result_reg;
+reg[31:0] instruction_pipeline;
+wire[31:0] instruction_choosed;
+// choose to read from instruction or instruction pipeline
+assign instruction_choosed = (micro_code[16:16])? instruction_pipeline: instruction;
 // assign alu_result = alu_result_reg;
-assign alu_regfile_address_out_1 = instruction[23:16];
-assign alu_regfile_address_out_2 = instruction[15:8];
+assign alu_regfile_address_out_1 = instruction_choosed[23:16];
+assign alu_regfile_address_out_2 = instruction_choosed[15:8];
 
 
 // when reading from memory from is required
-assign alu_memory_address_out = (micro_code[11:11] == 1'b1) ?  instruction[23:16]: 
-                                (micro_code[10:10] == 1'b1) ? instruction[15:8]: 8'b0000_0000; 
+assign alu_memory_address_out = (micro_code[11:11] == 1'b1) ?  instruction_choosed[23:16]: 
+                                (micro_code[10:10] == 1'b1) ? instruction_choosed[15:8]: 8'b0000_0000; 
 
 
 // assign alu input operands
@@ -511,13 +515,13 @@ assign alu_operand_1 = (micro_code[9:9] == 1'b1) ?  alu_memory_in:
 
 assign alu_operand_2 = (micro_code[8:8] == 1'b1) ?  alu_memory_in:
                        (micro_code[6:6] == 1'b1) ? alu_regfile_in_2: 
-                       (micro_code[5:5] == 1'b1) ? instruction[7:0] : 16'b0;
+                       (micro_code[5:5] == 1'b1) ? instruction_choosed[7:0] : 16'b0;
 
 // write enable for register file
 assign alu_regfile_write_en_out = (micro_code[0:0]==1'b1) ? 1'b1: 1'b0;
 
 // assign address
-assign alu_regfile_address_out = instruction[7:0];
+assign alu_regfile_address_out = instruction_choosed[7:0];
 
 // write enable for memory
 assign alu_memory_write_en_out = (micro_code[1:1]==1'b1) ? 1'b1: 1'b0;
@@ -543,19 +547,23 @@ assign alu_result = (micro_code[15:12] == 4'b0001) ? alu_add_result:
 
 // assign flush_pipeline_out = (instruction[31:28]==4'b0110  && alu_result == branch_prediction_result_cu_alu) ? alu_result : 1'b0;
 // send flush pipeline signal to fetch when branch prediction fails
-assign is_conditional_branch_alu_fe = (instruction[31:28]==4'b0110) ? 1'b1: 1'b0;
-assign flush_pipeline_out = (!(instruction[31:28]==4'b0110)) ? 1'b0: 
+assign is_conditional_branch_alu_fe = (instruction_choosed[31:28]==4'b0110) ? 1'b1: 1'b0;
+assign flush_pipeline_out = (!(instruction_choosed[31:28]==4'b0110)) ? 1'b0: 
                             (alu_result == branch_prediction_result_cu_alu) ? 1'b0: 1'b1;
 assign instr_address_not_taken_alu_fe = instr_address_not_taken_cu_alu;
 assign branch_instr_address_alu_fe = branch_instr_address_cu_alu;
-assign branch_taken_alu_fe = (!(instruction[31:28]==4'b0110)) ? 1'b0:
+assign branch_taken_alu_fe = (!(instruction_choosed[31:28]==4'b0110)) ? 1'b0:
                              (alu_result) ? 1'b1: 1'b0;
 
 // inner registers
-reg [15:0] micro_code_reg;
+reg [31:0] micro_code_reg;
 always @ (posedge clk)
 begin
     micro_code_reg <= micro_code;
+    if (micro_code[17:17])
+    begin
+        instruction_pipeline <= instruction;
+    end
 end
 
 // behaviour according to micro-code
@@ -653,19 +661,19 @@ endmodule
 // micro instruction memory 
 module micro_instr_mem (
     input [7:0] micro_code_addr_in,
-    output [15:0] micro_code_data_out,
+    output [31:0] micro_code_data_out,
     input [7:0] micro_code_addr_speculative_fetch_in,
-    output [15:0] micro_code_data_speculative_fetch_out
+    output [31:0] micro_code_data_speculative_fetch_out
 );
 
-reg [15:0] mem [0:255];
+reg [31:0] mem [0:255];
 assign micro_code_data_out = mem[micro_code_addr_in];
 assign micro_code_data_speculative_fetch_out = mem[micro_code_addr_speculative_fetch_in];
 endmodule
 
 module external_mem (
     input clk,
-    input [15:0] micro_code,
+    input [31:0] micro_code,
     input [7:0] addr,
     input [15:0] data_in,
     output [15:0] data_out,
@@ -761,11 +769,11 @@ wire [31:0] instr;
 wire [31:0] instr_idecode_alu;
 wire [31:0] instr_idecode_cu;
 wire [31:0] instr_cu_alu;
-wire [15:0] micro_code;
+wire [31:0] micro_code;
 wire [7:0] micro_code_addr_de_cu;
 wire [7:0] micro_code_addr_cu_alu;
-wire [15:0] micro_code_speculative_fetch;  // REASSIGN!
-wire [15:0] micro_code_cu_alu;  // REASSIGN!
+wire [31:0] micro_code_speculative_fetch;  // REASSIGN!
+wire [31:0] micro_code_cu_alu;  // REASSIGN!
 wire [7:0] micro_code_addr_speculative_fetch;  // REASSIGN!
 wire [2:0] micro_code_cnt_de_cu;
 wire [15:0] alu_result;
@@ -795,6 +803,7 @@ wire branch_taken_alu_fe;
 wire instr_valid;
 wire dec_ready;
 wire exec_ready; // connects CU and Fetch
+wire [31:0] mem_micro_instr_test;
 
 // for test:
 wire [7:0] test_a = 8'b1010_0000;
@@ -965,7 +974,8 @@ rst = 1;
 // expected results: 3, 5, 37(0x25), 9, 11(0xB), 13(0xD)
 
 // instruction initial values (test repetitive jump instructions)
-u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] reg[0] = 0xF
+// u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000; // load from memory[8](0xF) to reg[0] reg[0] = 0xF
+u_mem.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010; // load from memory[8](0xF) to reg[2] reg[2] = 0xF
 u_mem.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000; // reg[0] <= reg[0] + reg[1]  reg[0] = 2+0xF = 0x11
 // out of order execution: reg[0]=3
 u_mem.mem[2] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; // reg[0] <= reg[0] + reg[2]  reg[0] = 0x11+3 = 0x14
@@ -1020,6 +1030,8 @@ u_register_file.mem[17] = 16'b0000_0000_0001_0011;
 
 // micro instruction initial values
 // micro instruction format:
+// [17]: instruction_pipeline <= instruction
+// [16]: whether read from instruction or instruction_pipeline (1:instruction_pipeline, 0:instruction)
 // [15:12]  operation completed (e.g. add, sub)
 // [11]  MAR <- IR[23:16]  // fetching operand 1 in memory
 // [10]  MAR <- IR[15:8]  // fetching operand 2 in memory
@@ -1084,11 +1096,12 @@ u_micro_instr_mem.mem[28] = 16'b0111_0010_0100_0001; // sll rd, MBR, rs2
 // A better solution is to add a register in alu to store alu_result.
 
 // load rd, [memory address] (consumes 3 clock cycles, 1 extra cycle to write to register file)
-u_micro_instr_mem.mem[29] = 16'b0000_1000_0001_0000; // MAR <- IR[23:16]  // fetching operand 1 in memory (transferring address to MAR)
-u_micro_instr_mem.mem[30] = 16'b0000_0000_0000_1000; // MBR <- memory[MAR](MBR) // fetching operand 1 in memory (transferring data to MBR) : can be done in parallel
-u_micro_instr_mem.mem[31] = 16'b0000_0010_0000_0001; // rd <- MBR  // fetching operand 2 in memory (transferring address to MAR) // 0000 means no-op : Here rd is from a buffered instruction (instruction reg)
+u_micro_instr_mem.mem[29] = 20'b0010_0000_1000_0001_0000; // MAR <- IR[23:16]  // fetching operand 1 in memory (transferring address to MAR)
+// the '10' on the highest 2 positions mean 1) instruction_pipeline <= instruction; 2) currently read from instruction
+u_micro_instr_mem.mem[30] = 20'b0000_0000_0000_0000_1000; // MBR <- memory[MAR](MBR) // fetching operand 1 in memory (transferring data to MBR) : can be done in parallel
+u_micro_instr_mem.mem[31] = 20'b0001_0000_0010_0000_0001; // rd <- MBR  // fetching operand 2 in memory (transferring address to MAR) // 0000 means no-op : Here rd is from a buffered instruction (instruction reg)
+// the '01' on the highest 2 positions mean 1) currently read from instruction_pipeline
 // 时钟生成（周期10ns）
-
 // store
 u_micro_instr_mem.mem[32] = 16'b0000_0100_1001_0100; // in parallel: MAR <- IR[15:8]; alu_result <- rs1 ; MBR <- alu_result ;
 // u_micro_instr_mem.mem[33] = 16'b0000_0000_0000_0100; // MBR <- alu_result
@@ -1105,11 +1118,15 @@ u_micro_instr_mem.mem[36] = 16'b1100_0000_1100_0000; // judge whether rs1 and rs
 u_micro_instr_mem.mem[255] = 16'b0000_0000_0000_0000; // NO-OP
 end
 
+
+// for test
+assign mem_micro_instr_test = u_micro_instr_mem.mem[29];
+
 // 波形记录（支持iverilog）
 initial begin
     $dumpfile("wave.vcd");
     $dumpvars(0, tb);
-    #2000
+    #2500
     $finish;
 end
 
