@@ -1,12 +1,12 @@
 // Fetch instruction
 module fetch (
-    input         clk,
-    input         rst,
-    output [15:0] imem_addr,
-    input  [31:0] imem_data,
-    output [31:0] instr,
-    output        instr_valid,
-    output        flush_pipeline,  // stall the entire pipeline when branch prediction fails
+    input         clk,  // ok
+    input         rst,   // ok
+    output [15:0] imem_addr, // ok
+    input  [31:0] imem_data, // ok
+    output [31:0] instr,  // ok
+    output        instr_valid,  // intf // ok
+    output        flush_pipeline, //ok // stall the entire pipeline when branch prediction fails
     output  [7:0] instr_address_not_taken,  // The address of instruction not taken in branch prediction
     output  [7:0] branch_instr_address,
     output        branch_prediction_result,
