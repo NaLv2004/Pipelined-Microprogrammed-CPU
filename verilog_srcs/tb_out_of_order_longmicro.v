@@ -783,8 +783,8 @@ wire [7:0] register_file_addr_1;
 wire [7:0] register_file_addr_2;
 wire [15:0] register_data_out_1;
 wire [15:0] register_data_out_2;
-wire [31:0] instr;
-wire [31:0] instr_idecode_alu;
+wire [31:0] instr;  // fe-de
+wire [31:0] instr_idecode_alu;  // 
 wire [31:0] instr_idecode_cu;
 wire [31:0] instr_cu_alu;
 wire [31:0] micro_code;
@@ -922,14 +922,12 @@ register_file u_register_file(
     .mem_test(mem_regfile_test)
 );
 
-
 micro_instr_mem u_micro_instr_mem(
     .micro_code_addr_in(micro_code_addr_cu_alu),
     .micro_code_data_out(micro_code),
     .micro_code_addr_speculative_fetch_in(micro_code_addr_speculative_fetch),
     .micro_code_data_speculative_fetch_out(micro_code_speculative_fetch)
 );
-
 
 // with out-of-order completion, alu receives micro-code from cu, not from micro_instr_mem
 alu u_alu(
