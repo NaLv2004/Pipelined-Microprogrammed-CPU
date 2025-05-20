@@ -17,7 +17,7 @@ class cpu_specifications:
         self.external_mem_addr_width = 8
         self.external_mem_depth = 256
         self.register_file_data_width = 16
-        self.register_file_data_width = 8
+        self.register_file_addr_width = 8
         self.register_file_depth = 256
         self.micro_instruction_data_width = 32
         self.micro_instruction_addr_width = 8
@@ -25,6 +25,7 @@ class cpu_specifications:
         self.branch_prediction_table_addr_width = math.ceil(math.log2(self.branch_prediction_table_depth))
         self.branch_prediction_table_data_width = 11
         self.micro_instruction_cnt_width = 3
+        self.micro_instruction_depth = 256
         self.alu_result_width = 16
         self.branch_prediction_enable = True
         self.out_of_order_execution_enable = True
@@ -47,7 +48,7 @@ class cpu_specifications:
             for port in interface_ports:
                 port_width = interface[port]
                 port_end_bit = port_start_bit + port_width -1
-                self.fetch_idecode_interface[port] = []
+                self.fetch_idecode_interface[port] = [0,1]
                 self.fetch_idecode_interface[port][0] = port_start_bit  
                 self.fetch_idecode_interface[port][1] = port_end_bit
                 port_start_bit = port_end_bit + 1
@@ -56,7 +57,7 @@ class cpu_specifications:
             for port in interface_ports:
                 port_width = interface[port]
                 port_end_bit = port_start_bit + port_width -1
-                self.alu_fetch_interface[port] = []
+                self.alu_fetch_interface[port] = [0,1]
                 self.alu_fetch_interface[port][0] = port_start_bit  
                 self.alu_fetch_interface[port][1] = port_end_bit
                 port_start_bit = port_end_bit + 1
@@ -64,7 +65,7 @@ class cpu_specifications:
         if interface_name == 'cu_alu':
             for port in interface_ports:
                 port_width = interface[port]
-                self.cu_alu_interface[port] = []
+                self.cu_alu_interface[port] = [0,1]
                 port_end_bit = port_start_bit + port_width -1
                 self.cu_alu_interface[port][0] = port_start_bit  
                 self.cu_alu_interface[port][1] = port_end_bit
@@ -73,7 +74,7 @@ class cpu_specifications:
         if interface_name == 'idecode_cu':
             for port in interface_ports:
                 port_width = interface[port]
-                self.idecode_cu_interface[port] = []
+                self.idecode_cu_interface[port] = [0,1]
                 port_end_bit = port_start_bit + port_width -1
                 self.idecode_cu_interface[port][0] = port_start_bit  
                 self.idecode_cu_interface[port][1] = port_end_bit
@@ -113,9 +114,9 @@ idecode_cu_interface['branch_instr_address_de_cu'] = my_cpu_spec.instruction_add
 idecode_cu_interface['branch_prediction_result_de_cu'] = 1
 
 cu_alu_interface = dict()
-cu_alu_interface['micro_code_addr_out'] = my_cpu_spec.micro_instruction_addr_width
+# cu_alu_interface['micro_code_addr_out'] = my_cpu_spec.micro_instruction_addr_width
 cu_alu_interface['micro_code_out'] = my_cpu_spec.micro_instruction_data_width
-cu_alu_interface['micro_code_addr_speculative_fetch'] =  my_cpu_spec.micro_instruction_addr_width
+# cu_alu_interface['micro_code_addr_speculative_fetch'] =  my_cpu_spec.micro_instruction_addr_width
 cu_alu_interface['micro_code_speculative_fetch'] = my_cpu_spec.micro_instruction_data_width
 cu_alu_interface['instr_cu_out'] = my_cpu_spec.instruction_data_width
 cu_alu_interface['instr_address_not_taken_cu_alu'] = my_cpu_spec.instruction_addr_width
@@ -136,7 +137,7 @@ def ModuleMiniDecode(cpu_spec):
     #/ module MiniDecode(
     #/     input  [`cpu_spec.instruction_data_width-1`:0] instr,
     #/     output is_unconditional_branch,
-    #/     output is_conditional_branch,
+    #/     output is_conditional_branch
     #/ );
     #/ assign is_unconditional_branch = (instr[31:28]==4'b0100) ? 1'b1 : 1'b0;
     #/ assign is_conditional_branch = (instr[31:28]==4'b0110) ? 1'b1 : 1'b0;
@@ -150,7 +151,7 @@ def ModuleOneBitBranchPredictor(cpu_spec):
     #/     input clk,
     #/     input rst,
     #/     input [`cpu_spec.instruction_addr_width-1`:0] instr_address_fe,
-    #/     input [`cpu_spec.instruction_addr_width-1`:0] intr_address_alu,
+    #/     input [`cpu_spec.instruction_addr_width-1`:0] instr_address_alu,
     #/     input branch_taken_in,
     #/     input is_conditional_branch_fe,
     #/     input is_conditional_branch_alu,
@@ -158,7 +159,7 @@ def ModuleOneBitBranchPredictor(cpu_spec):
     #/     output [`cpu_spec.branch_prediction_table_depth-1`:0] mem_one_bit_predictor_test
     #/     );
     #/ wire [`cpu_spec.instruction_addr_width-1`:0] instr_address_fe;
-    #/ wire [`cpu_spec.instruction_addr_width-1`:0] intr_address_alu;
+    #/ wire [`cpu_spec.instruction_addr_width-1`:0] instr_address_alu;
     #/ reg [`cpu_spec.branch_prediction_table_data_width-1`:0] counters_and_address [`cpu_spec.branch_prediction_table_depth-1`:0];
     for i in range (0, cpu_spec.branch_prediction_table_depth):
         #/ assign mem_one_bit_predictor_test[`i`] = counters_and_address[`i`][`cpu_spec.branch_prediction_table_data_width-1`];
@@ -176,8 +177,8 @@ def ModuleOneBitBranchPredictor(cpu_spec):
     #/ wire  slot_hit_alu;
     #/ wire  slot_not_occupied_alu;
     #/ wire  slot_occupied_alu;
-    #/ assign idx_slot_alu = intr_address_alu[`cpu_spec.branch_prediction_table_addr_width-1`:0];
-    #/ assign slot_hit_alu = (counters_and_address[idx_slot_alu][`cpu_spec.instruction_addr_width-1`:0]==intr_address_alu[`cpu_spec.instruction_addr_width-1`:0]) ?
+    #/ assign idx_slot_alu = instr_address_alu[`cpu_spec.branch_prediction_table_addr_width-1`:0];
+    #/ assign slot_hit_alu = (counters_and_address[idx_slot_alu][`cpu_spec.instruction_addr_width-1`:0]==instr_address_alu[`cpu_spec.instruction_addr_width-1`:0]) ?
     #/                      1'b1 : 1'b0;
     #/ assign slot_not_occupied_alu = (counters_and_address[idx_slot_alu][`cpu_spec.instruction_addr_width`:`cpu_spec.instruction_addr_width`]==1'b0) ? 1'b1 : 1'b0;
     #/ assign slot_occupied_alu = ! slot_not_occupied_alu;
@@ -233,7 +234,7 @@ def ModuleJudgeNotConflictSpeculativeFetch(cpu_spec):
     #/ wire is_micro_code_dependent;
     #/ assign is_micro_code_conflict = (| (micro_code_speculative[`cpu_spec.micro_instruction_data_width-1`:0] & micro_code_normal[`cpu_spec.micro_instruction_data_width-1`:0])) ? 1'b1:
     #/                               (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
-    #/ aassign is_micro_code_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
+    #/ assign is_micro_code_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
     #/ assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_dependent);
     #/ endmodule
     pass
@@ -338,7 +339,7 @@ def ModuleInstrMem(cpu_spec):
     #/     output [`cpu_spec.instruction_data_width-1`:0] data_out
     #/ );
     #/ reg [`cpu_spec.instruction_data_width-1`:0] mem [`cpu_spec.external_mem_depth-1`:0];
-    #/ 
+    #/ assign data_out = mem[addr[7:1]];
     #/ endmodule
     pass
     
@@ -346,23 +347,50 @@ def ModuleInstrMem(cpu_spec):
 @ convert
 def ModuleMicroInstrMem(cpu_spec):
     #/ module MicroInstrMem(
-    #/        input [`cpu_spec.micro_instruction_addr_width-1`] micro_code_addr_in,
-    #/        output [`cpu_spec.micro_instruction_data_width-1`] micro_code_data_out
-    #/        input [`cpu_spec.micro_instruction_addr_width-1`] micro_code_addr_speculative_fetch_in,
-    #/        output [`cpu_spec.micro_instruction_data_width-1`] micro_code_data_speculative_fetch_out
+    #/        input [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_in,
+    #/        output [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_data_out,
+    #/        input [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch_in,
+    #/        output [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_data_speculative_fetch_out
     #/        );
     #/ reg [`cpu_spec.micro_instruction_data_width-1`:0] mem [`cpu_spec.micro_instruction_depth-1`:0];
     #/ assign micro_code_data_out = mem[micro_code_addr_in];
     #/ assign micro_code_data_speculative_fetch_out = mem[micro_code_addr_speculative_fetch_in];
     #/ endmodule
     pass
-    
+
+
+@ convert
+def ModuleRegisterFile(cpu_spec):
+    #/ module RegisterFile(
+    #/     input clk,
+    #/     input  [`cpu_spec.register_file_addr_width-1`:0] reg_addr_1,
+    #/     input  [`cpu_spec.register_file_addr_width-1`:0] reg_addr_2,
+    #/     input  [0:0] write_en,
+    #/     input  [`cpu_spec.register_file_addr_width-1`:0] reg_addr_in,
+    #/     input  [`cpu_spec.register_file_data_width-1`:0] data_in,
+    #/     output [`cpu_spec.register_file_data_width-1`:0] data_out_1,
+    #/     output [`cpu_spec.register_file_data_width-1`:0] data_out_2,
+    #/     output [`cpu_spec.register_file_data_width-1`:0] mem_test
+    #/     );
+    #/ reg [`cpu_spec.register_file_data_width-1`:0] mem [`cpu_spec.register_file_depth-1`:0];
+    #/ assign data_out_1 = mem[reg_addr_1];
+    #/ assign data_out_2 = mem[reg_addr_2];
+    #/ assign mem_test = mem[0];
+    #/ always @(posedge clk)
+    #/ begin
+    #/     if (write_en)
+    #/     begin
+    #/         mem[reg_addr_in] <= data_in;
+    #/     end
+    #/ end
+    #/ endmodule
+    pass
 
 
 @ convert
 def ModuleExternalMem(cpu_spec):
     #/ module ExternalMem(
-    #/     input clk;
+    #/     input clk,
     #/     input [`cpu_spec.micro_instruction_data_width-1`:0] micro_code,
     #/     input [`cpu_spec.external_mem_addr_width-1`:0] addr,
     #/     input [`cpu_spec.external_mem_data_width-1`:0] data_in,
@@ -416,11 +444,13 @@ def ModuleFetch(cpu_spec):
     #/ wire [`cpu_spec.instruction_addr_width-1`:0] branch_instr_address_alu_fe;
     #/ wire is_conditional_branch_alu_fe;
     #/ wire branch_taken_in;
+    #/ wire branch_prediction_failed;
     #/ wire [`cpu_spec.instruction_addr_width-1`:0] instr_address_not_taken_alu_fe;
     #/ assign branch_instr_address_alu_fe = alu_fetch_interface[`cpu_spec.alu_fetch_interface['branch_instr_address_alu_fe'][1]`:`cpu_spec.alu_fetch_interface['branch_instr_address_alu_fe'][0]`];
     #/ assign is_conditional_branch_alu_fe = alu_fetch_interface[`cpu_spec.alu_fetch_interface['is_conditional_branch_alu_fe'][1]`:`cpu_spec.alu_fetch_interface['is_conditional_branch_alu_fe'][0]`];
     #/ assign branch_taken_in = alu_fetch_interface[`cpu_spec.alu_fetch_interface['branch_taken_in'][1]`:`cpu_spec.alu_fetch_interface['branch_taken_in'][0]`];
     #/ assign instr_address_not_taken_alu_fe = alu_fetch_interface[`cpu_spec.alu_fetch_interface['instr_address_not_taken_alu_fe'][1]`:`cpu_spec.alu_fetch_interface['instr_address_not_taken_alu_fe'][0]`];
+    #/ assign branch_prediction_failed = alu_fetch_interface[`cpu_spec.alu_fetch_interface['branch_prediction_failed'][1]`:`cpu_spec.alu_fetch_interface['branch_prediction_failed'][0]`];
     #/ reg [15:0] pc;
     #/ reg [`cpu_spec.instruction_data_width-1`:0] instruction_reg;
     #/ reg valid_reg;
@@ -431,9 +461,9 @@ def ModuleFetch(cpu_spec):
     #/ wire branch_taken_one_bit_predict;
     #/ wire branch_prediction_result_in_fe;
     #/ reg branch_prediction_result_reg;
-    #/ assign fe_idecode_interface[`cpu_spec.fe_idecode_interface['instr_address_not_taken'][1]`:`cpu_spec.fe_idecode_interface['instr_address_not_taken'][0]`] = branch_target_buffer;
-    #/ wire [`instruction_addr_width-1`:0]  curr_instr_address;
-    #/ assign curr_instr_address = pc[`instruction_addr_width-1`:0];
+    #/ assign fetch_idecode_interface[`cpu_spec.fetch_idecode_interface['instr_address_not_taken'][1]`:`cpu_spec.fetch_idecode_interface['instr_address_not_taken'][0]`] = branch_target_buffer;
+    #/ wire [`cpu_spec.instruction_addr_width-1`:0]  curr_instr_address;
+    #/ assign curr_instr_address = pc[`cpu_spec.instruction_addr_width-1`:0];
     #/ wire is_conditional_branch;
     #/ wire is_unconditional_branch;
     ports_mini_decode = {
@@ -448,8 +478,8 @@ def ModuleFetch(cpu_spec):
     #/                         (pc+16'h2);
     #/ assign branch_target_address_wire = (is_conditional_branch)? imem_data[7:0] : branch_target_buffer;
     #/ assign flush_pipeline = branch_prediction_failed;
-    #/ assign fe_idecode_interface[`cpu_spec.fe_idecode_interface['branch_instr_address'][1]`:`cpu_spec.fe_idecode_interface['branch_instr_address'][0]`] = pc_delayed;
-    #/ assign fe_idecode_interface[`cpu_spec.fe_idecode_interface['branch_prediction_result'][1]`:`cpu_spec.fe_idecode_interface['branch_prediction_result'][0]`] = branch_prediction_result_reg;
+    #/ assign fetch_idecode_interface[`cpu_spec.fetch_idecode_interface['branch_instr_address'][1]`:`cpu_spec.fetch_idecode_interface['branch_instr_address'][0]`] = pc_delayed;
+    #/ assign fetch_idecode_interface[`cpu_spec.fetch_idecode_interface['branch_prediction_result'][1]`:`cpu_spec.fetch_idecode_interface['branch_prediction_result'][0]`] = branch_prediction_result_reg;
     #/ assign branch_prediction_result_in_fe = (is_conditional_branch && branch_taken_one_bit_predict)? 1'b1 : 1'b0;
     ports_one_bit_branch_predictor = {
     'clk':'clk',
@@ -464,8 +494,8 @@ def ModuleFetch(cpu_spec):
     ModuleOneBitBranchPredictor(cpu_spec=cpu_spec, PORTS = ports_one_bit_branch_predictor)
     #/ always @(posedge clk or posedge rst) begin
     #/     if (rst) begin
-    #/         branch_target_buffer <= `instruction_addr_width`'b0;
-    #/         pc_delayed <= `instruction_addr_width`'b0;
+    #/         branch_target_buffer <= `cpu_spec.instruction_addr_width`'b0;
+    #/         pc_delayed <= `cpu_spec.instruction_addr_width`'b0;
     #/         branch_prediction_result_reg <= 1'b0;
     #/     end else begin
     #/         branch_target_buffer <= branch_target_address_wire;
@@ -476,10 +506,10 @@ def ModuleFetch(cpu_spec):
     #/     if (rst) begin
     #/         pc <= 16'h0;
     #/     end else if (valid_reg && dec_ready && exec_ready) begin
-    #/         pc_delayed <= pc[`instruction_addr_width-1`:0];
+    #/         pc_delayed <= pc[`cpu_spec.instruction_addr_width-1`:0];
     #/         branch_prediction_result_reg <= branch_prediction_result_in_fe;
     #/         if (branch_prediction_failed) begin
-    #/             instruction_reg <= `instruction_data_width`'b0;
+    #/             instruction_reg <= `cpu_spec.instruction_data_width`'b0;
     #/             // prev:pc <= branch_target_buffer;
     #/             pc <= instr_address_not_taken_alu_fe;
     #/         end else begin
@@ -493,15 +523,15 @@ def ModuleFetch(cpu_spec):
     #/ always @(posedge clk or posedge rst) begin
     #/     if (rst) begin
     #/         valid_reg <= 1'b0;
-    #/         instruction_reg <= `instruction_data_width`'b0;
+    #/         instruction_reg <= `cpu_spec.instruction_data_width`'b0;
     #/     end else begin
     #/         valid_reg <= 1'b1;
     #/     end
     #/ end
     #/ 
     #/ assign imem_addr = pc;
-    #/ assign fetch_idecode_interface[`fetch_idecode_interface['instr_valid'][1]`:`fetch_idecode_interface['instr_valid'][0]`] = valid_reg;
-    #/ assign fetch_idecode_interface[`fetch_idecode_interface['instr'][1]`:`fetch_idecode_interface['instr'][0]`] = instruction_reg;
+    #/ assign fetch_idecode_interface[`cpu_spec.fetch_idecode_interface['instr_valid'][1]`:`cpu_spec.fetch_idecode_interface['instr_valid'][0]`] = valid_reg;
+    #/ assign fetch_idecode_interface[`cpu_spec.fetch_idecode_interface['instr'][1]`:`cpu_spec.fetch_idecode_interface['instr'][0]`] = instruction_reg;
     #/ endmodule
   
         
@@ -511,13 +541,13 @@ def ModuleDecode(cpu_spec):
     #/     input  clk,
     #/     input  rst,
     #/     input  flush_pipeline,
-    #/     input  [`fetch_idecode_interface_width-1`:0] fetch_idecode_interface,
+    #/     input  [`cpu_spec.fetch_idecode_interface_width-1`:0] fetch_idecode_interface,
     #/     output [2:0] opcode,
     #/     output [4:0] rs1,
     #/     output [4:0] rs2,
     #/     output [4:0] rd,
     #/     output dec_ready,
-    #/     output [`idecode_cu_interface_width-1`:0] idecode_cu_interface
+    #/     output [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface
     #/     );
     fetch_idecode_interface_port_mapping = {
     'instr_valid':'instr_valid',
@@ -529,8 +559,8 @@ def ModuleDecode(cpu_spec):
     # // assign inner wires to fetches interface ports (input)
     for fetch_port in fetch_idecode_interface_port_mapping.keys():
         idecode_port = fetch_idecode_interface_port_mapping[fetch_port]
-        low_bit = cpu_spec.idecode_cu_interface[fetch_port][0]
-        high_bit = cpu_spec.idecode_cu_interface[fetch_port][1]
+        low_bit = cpu_spec.fetch_idecode_interface[fetch_port][0]
+        high_bit = cpu_spec.fetch_idecode_interface[fetch_port][1]
         port_width = high_bit - low_bit + 1
         #/ wire [`port_width-1`:0] `idecode_port`;
         #/ assign `idecode_port` = fetch_idecode_interface[`high_bit`:`low_bit`];
@@ -612,22 +642,24 @@ def ModuleCU(cpu_spec):
     #/     input  clk,
     #/     input  rst,
     #/     input  flush_pipeline,
-    #/     input  [`micro_instruction_data_width-1`:0] micro_code_in_normal,
-    #/     input  [`micro_instruction_data_width-1`:0] micro_code_in_speculative,
-    #/     input  [`idecode_cu_interface_width-1`:0] idecode_cu_interface,
-    #/     output [`cu_alu_interface_width-1`:0] cu_alu_interface,
+    #/     input  [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_in_normal,
+    #/     input  [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_in_speculative,
+    #/     input  [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface,
+    #/     output [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface,
     #/     output o_exec_ready_combined,
-    #/     output o_exec_ready_normal
+    #/     output o_exec_ready_normal,
+    #/     output [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_out,
+    #/     output [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch
     #/     );
     #/ wire clk;
     #/ wire rst;
     #/ wire flush_pipeline;
     #/ wire o_exec_ready_combined;
     #/ wire o_exec_ready_normal;
-    #/ wire [`micro_instruction_data_width-1`:0] micro_code_in_normal;
-    #/ wire [`micro_instruction_data_width-1`:0] micro_code_in_speculative;
-    #/ wire [`idecode_cu_interface_width-1`:0] idecode_cu_interface;
-    #/ wire [`cu_alu_interface_width-1`:0] cu_alu_interface;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_in_normal;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_in_speculative;
+    #/ wire [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface;
+    #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
     #/ // assign inner wires to de_cu_interface ports (input)
     idecode_cu_interface_port_mapping = {
     'instr_out': 'instr_cu_in',
@@ -651,7 +683,6 @@ def ModuleCU(cpu_spec):
         port_width = high_bit - low_bit + 1
         #/ wire [`port_width-1`:0] `cu_output_port`;
         #/ assign cu_alu_interface[`high_bit`:`low_bit`] = `cu_output_port`;
-    #/ wire clk;
     #/ wire [`cpu_spec.instruction_data_width-1`:0]  instruction_normal;
     #/ reg [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_reg;
     #/ reg [`cpu_spec.micro_instruction_cnt_width-1`:0] micro_code_cnt_reg;
@@ -679,7 +710,7 @@ def ModuleCU(cpu_spec):
         'is_micro_code_not_conflict': 'o_exec_ready_speculative_fetch'
     }
     ModuleJudgeNotConflictSpeculativeFetch(cpu_spec=cpu_spec, PORTS = ports_judge_not_conflict_speculative_fetch)
-    #/ assign o_exec_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
+    #/ assign o_exec_ready_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
     #/ // fused micro-code 
     #/ assign micro_code_out = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
     #/ // CU is ready to receive new micro-code address when micro-code-reg == 0 (all the micro-codes executed)
@@ -722,78 +753,6 @@ def ModuleCU(cpu_spec):
     #/ endmodule
     pass
     
-# // when reading from memory from is required
-# assign alu_memory_address_out = (micro_code[11:11] == 1'b1) ?  instruction_choosed[23:16]: 
-#                                 (micro_code[10:10] == 1'b1) ? instruction_choosed[15:8]: 8'b0000_0000; 
-
-
-# // assign alu input operands
-# assign alu_operand_1 = (micro_code[9:9] == 1'b1) ?  alu_memory_in: 
-#                        (micro_code[7:7] == 1'b1) ? alu_regfile_in_1: 16'b0;
-
-# assign alu_operand_2 = (micro_code[8:8] == 1'b1) ?  alu_memory_in:
-#                        (micro_code[6:6] == 1'b1) ? alu_regfile_in_2: 
-#                        (micro_code[5:5] == 1'b1) ? instruction_choosed[7:0] : 16'b0;
-
-# // write enable for register file
-# assign alu_regfile_write_en_out = (micro_code[0:0]==1'b1) ? 1'b1: 1'b0;
-
-# // assign address
-# assign alu_regfile_address_out = instruction_choosed[7:0];
-
-# // write enable for memory
-# assign alu_memory_write_en_out = (micro_code[1:1]==1'b1) ? 1'b1: 1'b0;
-
-                    
-
-# adder u_adder(.op_1(alu_operand_1),.op_2(alu_operand_2),.result(alu_add_result));
-# subtractor u_subtractor(.op_1(alu_operand_1),.op_2(alu_operand_2),.result(alu_sub_result));
-# xorer u_xorer(.op_1(alu_operand_1),.op_2(alu_operand_2),.result(alu_xor_result));
-# ander u_ander(.op_1(alu_operand_1),.op_2(alu_operand_2),.result(alu_and_result));
-# orer u_orer(.op_1(alu_operand_1),.op_2(alu_operand_2),.result(alu_or_result));
-# judge_equal u_judge_equal(.op_1(alu_operand_1), .op_2(alu_operand_2), .result(alu_judge_equal_result));
-
-# // select operation based on micro-code
-# assign alu_result = (micro_code[15:12] == 4'b0001) ? alu_add_result:
-#                     (micro_code[15:12] == 4'b0010) ? alu_sub_result:
-#                     (micro_code[15:12] == 4'b0011) ? alu_xor_result:
-#                     (micro_code[15:12] == 4'b0100) ? alu_and_result:
-#                     (micro_code[15:12] == 4'b0101) ? alu_or_result:   // 16'b0 is default value
-#                     (micro_code[15:12] == 4'b0000) ? alu_operand_1: // load
-#                     (micro_code[15:12] == 4'b1100) ? alu_judge_equal_result: // beq
-#                     16'b0;
-
-# // assign flush_pipeline_out = (instruction[31:28]==4'b0110  && alu_result == branch_prediction_result_cu_alu) ? alu_result : 1'b0;
-# // send flush pipeline signal to fetch when branch prediction fails
-# assign is_conditional_branch_alu_fe = (instruction_choosed[31:28]==4'b0110) ? 1'b1: 1'b0;
-# assign flush_pipeline_out = (!(instruction_choosed[31:28]==4'b0110)) ? 1'b0: 
-#                             (alu_result == branch_prediction_result_cu_alu) ? 1'b0: 1'b1;
-# assign instr_address_not_taken_alu_fe = instr_address_not_taken_cu_alu;
-# assign branch_instr_address_alu_fe = branch_instr_address_cu_alu;
-# assign branch_taken_alu_fe = (!(instruction_choosed[31:28]==4'b0110)) ? 1'b0:
-#                              (alu_result) ? 1'b1: 1'b0;
-
-# // inner registers
-# reg [31:0] micro_code_reg;
-# always @ (posedge clk)
-# begin
-#     micro_code_reg <= micro_code;
-#     if (micro_code[17:17])
-#     begin
-#         instruction_pipeline <= instruction;
-#     end
-# end
-
-# // behaviour according to micro-code
-# always @ (posedge clk)
-# begin
-#     if (micro_code_reg == 16'b0)
-#     begin
-#         alu_result_reg <= alu_regfile_in_1 + alu_regfile_in_2;
-#     end
-# end 
-
-# the following pytv function is based on the above verilog code.
 @ convert      
 def ModuleALU(cpu_spec):
     #/ module ALU(
@@ -801,16 +760,15 @@ def ModuleALU(cpu_spec):
     #/     input  [`cpu_spec.register_file_data_width-1`:0] alu_regfile_in_1,
     #/     input  [`cpu_spec.register_file_data_width-1`:0] alu_regfile_in_2,
     #/     input  [`cpu_spec.external_mem_data_width-1`:0] alu_memory_in,
-    #/     output [`alu_result_width-1`:0] alu_result,
+    #/     output [`cpu_spec.alu_result_width-1`:0] alu_result,
     #/     output [`cpu_spec.register_file_addr_width-1`:0] alu_regfile_address_out_1,
     #/     output [`cpu_spec.register_file_addr_width-1`:0] alu_regfile_address_out_2,
     #/     output [`cpu_spec.external_mem_addr_width-1`:0] alu_memory_address_out,
     #/     output alu_memory_write_en_out,
     #/     output [`cpu_spec.register_file_addr_width-1`:0] alu_regfile_address_out,
     #/     output alu_regfile_write_en_out,
-    #/     output flush_pipeline_out,
     #/     input  [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface,
-    #/     output [`cpu_spec.alu_fe_interface_width-1`:0] alu_fe_interface
+    #/     output [`cpu_spec.alu_fetch_interface_width-1`:0] alu_fetch_interface
     #/     );
     cu_alu_interface_port_mapping = {
     'micro_code_out':'micro_code',
@@ -826,13 +784,27 @@ def ModuleALU(cpu_spec):
         port_width = high_bit - low_bit + 1
         #/ wire [`port_width-1`:0] `alu_port`;
         #/ assign `alu_port` = cu_alu_interface[`high_bit`:`low_bit`];
-    #/ // assign inner wires to alu_fe_interface ports (output)
-    for alu_output_port in cpu_spec.alu_fe_interface.keys():
-        low_bit = cpu_spec.alu_fe_interface[alu_output_port][0]
-        high_bit = cpu_spec.alu_fe_interface[alu_output_port][1]
+    #/ // assign inner wires to alu_fetch_interface ports (output)
+    fe_alu_interface_port_mapping = {
+    'branch_prediction_failed':'flush_pipeline_out',
+    'instr_address_not_taken_alu_fe':'instr_address_not_taken_alu_fe',
+    'branch_instr_address_alu_fe':'branch_instr_address_alu_fe',
+    'is_conditional_branch_alu_fe':'is_conditional_branch_alu_fe',
+    'branch_taken_in':'branch_taken_alu_fe'
+    }
+    # for alu_output_port in cpu_spec.alu_fetch_interface.keys():
+    #     low_bit = cpu_spec.alu_fetch_interface[alu_output_port][0]
+    #     high_bit = cpu_spec.alu_fetch_interface[alu_output_port][1]
+    #     port_width = high_bit - low_bit + 1
+    #     #/ wire [`port_width-1`:0] `alu_output_port`;
+    #     #/ assign alu_fetch_interface[`high_bit`:`low_bit`] = `alu_output_port`;
+    for fe_port in fe_alu_interface_port_mapping.keys():
+        alu_port = fe_alu_interface_port_mapping[fe_port]
+        low_bit = cpu_spec.alu_fetch_interface[fe_port][0]
+        high_bit = cpu_spec.alu_fetch_interface[fe_port][1]
         port_width = high_bit - low_bit + 1
-        #/ wire [`port_width-1`:0] `alu_output_port`;
-        #/ assign alu_fe_interface[`high_bit`:`low_bit`] = `alu_output_port`;
+        #/ wire [`port_width-1`:0] `alu_port`;
+        #/ assign alu_fetch_interface[`high_bit`:`low_bit`] = `alu_port`;
     #/ wire clk;
     #/ wire [`cpu_spec.register_file_data_width-1`:0] alu_result;
     #/ wire [`cpu_spec.register_file_data_width-1`:0] alu_regfile_in_1;
@@ -849,10 +821,10 @@ def ModuleALU(cpu_spec):
     #/ wire judge_equal_result;
     #/ reg [`cpu_spec.register_file_data_width-1`:0] alu_result_reg;
     #/ reg [`cpu_spec.instruction_data_width-1`:0] instruction_pipeline;
-    #/ wire [`instruction_data_width-1`:0] instruction_choosed;
+    #/ wire [`cpu_spec.instruction_data_width-1`:0] instruction_choosed;
     #/ assign instruction_choosed = (micro_code[16:16])? instruction_pipeline :instruction;
-    #/ assign alu_regfile_out_1 = instruction_choosed[23:16];
-    #/ assign alu_regfile_out_2 = instruction_choosed[15:8];
+    #/ assign alu_regfile_address_out_1 = instruction_choosed[23:16];
+    #/ assign alu_regfile_address_out_2 = instruction_choosed[15:8];
     #/ assign alu_memory_address_out = (micro_code[11:11] == 1'b1) ?  instruction_choosed[23:16]: 
     #/                                 (micro_code[10:10] == 1'b1) ? instruction_choosed[15:8]: 8'b0000_0000; 
     #/ assign alu_operand_1 = (micro_code[9:9] == 1'b1) ?  alu_memory_in: 
@@ -868,7 +840,7 @@ def ModuleALU(cpu_spec):
     ports_and = {'op_1':'alu_operand_1','op_2':'alu_operand_2','result':'alu_and_result'}
     ports_or = {'op_1':'alu_operand_1','op_2':'alu_operand_2','result':'alu_or_result'}
     ports_xor = {'op_1':'alu_operand_1','op_2':'alu_operand_2','result':'alu_xor_result'}
-    ports_equal = {'op_1':'alu_operand_1','op_2':'alu_operand_2','result':'judge_equal_result'}
+    ports_equal = {'op_1':'alu_operand_1','op_2':'alu_operand_2','result':'alu_judge_equal_result'}
     ModuleAdder(cpu_spec=cpu_spec,PORTS=ports_adder)
     ModuleSubstractor(cpu_spec=cpu_spec,PORTS=ports_subtractor)
     ModuleAnder(cpu_spec=cpu_spec,PORTS=ports_and)
@@ -883,7 +855,7 @@ def ModuleALU(cpu_spec):
     #/                     (micro_code[15:12] == 4'b0000) ? alu_operand_1:
     #/                     (micro_code[15:12] == 4'b1100) ? alu_judge_equal_result:
     #/                     16'b0;
-    #/ assign is_conditonal_branch_alu_fe = (instruction_choosed[31:28]==4'b0110) ? 1'b1: 1'b0;
+    #/ assign is_conditional_branch_alu_fe = (instruction_choosed[31:28]==4'b0110) ? 1'b1: 1'b0;
     #/ assign flush_pipeline_out = (!(instruction_choosed[31:28]==4'b0110)) ? 1'b0: 
     #/                             (alu_result == branch_prediction_result_cu_alu) ? 1'b0: 1'b1;
     #/ assign instr_address_not_taken_alu_fe = instr_address_not_taken_cu_alu;
@@ -910,4 +882,376 @@ def ModuleALU(cpu_spec):
     #/ end 
     #/ endmodule
     pass
+
+  
+    
+# reg clk;
+# reg rst;
+# wire [15:0] imem_addr;
+# wire [31:0] imem_data;
+# wire [7:0] register_file_addr_1;
+# wire [7:0] register_file_addr_2;
+# wire [15:0] register_data_out_1;
+# wire [15:0] register_data_out_2;
+# wire [31:0] instr;
+# wire [31:0] instr_idecode_alu;
+# wire [31:0] instr_idecode_cu;
+# wire [31:0] instr_cu_alu;
+# wire [31:0] micro_code;
+# wire [7:0] micro_code_addr_de_cu;
+# wire [7:0] micro_code_addr_cu_alu;
+# wire [31:0] micro_code_speculative_fetch;  // REASSIGN!
+# wire [31:0] micro_code_cu_alu;  // REASSIGN!
+# wire [7:0] micro_code_addr_speculative_fetch;  // REASSIGN!
+# wire [2:0] micro_code_cnt_de_cu;
+# wire [15:0] alu_result;
+# wire [15:0] data_memory_alu;
+# wire [7:0] address_memory_alu;
+# wire [0:0] write_en_memory;
+# wire [0:0] write_en_regfile;
+# wire [7:0] register_file_addr_dest;
+# wire [15:0] mem_regfile_test;
+# wire [15:0] mem_external_test;
+# wire [15:0] mem_regfile_test1;
+# wire [15:0] mem_external_test1;
+# wire [0:0] branch_prediction_failed;
+# wire [0:0] flush_pipeline; // flush pipeline when branch prediction fails
+# wire [7:0] instr_address_not_taken_alu_fe;
+# wire [7:0] instr_address_not_taken_fe_de;
+# wire [7:0] instr_address_not_taken_de_cu;
+# wire [7:0] instr_address_not_taken_cu_alu;
+# wire [7:0] branch_instr_address_alu_fe;
+# wire [7:0] branch_instr_address_fe_de;
+# wire [7:0] branch_instr_address_de_cu;
+# wire [7:0] branch_instr_address_cu_alu;
+# wire branch_prediction_result_alu_fe;
+# wire branch_prediction_result_fe_de;
+# wire branch_prediction_result_de_cu;
+# wire branch_prediction_result_cu_alu;
+# wire is_conditional_branch_alu_fe;
+# wire branch_taken_alu_fe;
+# wire instr_valid;
+# wire dec_ready;
+# wire exec_ready; // connects CU and Fetch
+# wire [31:0] mem_micro_instr_test;  
+    
+
+@ convert 
+def ModuleCPUTop(cpu_spec):
+    #/ module CPUTop;
+    #/ reg clk;
+    #/ reg rst;
+    #/ wire [15:0] imem_addr;
+    #/ wire [`cpu_spec.instruction_data_width-1`:0] imem_data;
+    #/ wire [`cpu_spec.register_file_addr_width-1`:0] register_file_addr_1;
+    #/ wire [`cpu_spec.register_file_addr_width-1`:0] register_file_addr_2;
+    #/ wire [`cpu_spec.register_file_data_width-1`:0] register_data_out_1;
+    #/ wire [`cpu_spec.register_file_data_width-1`:0] register_data_out_2;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code;
+    #/ wire [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_speculative_fetch;  // REASSIGN!
+    #/ wire [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch;  // REASSIGN!
+    #/ wire [`cpu_spec.register_file_data_width-1`:0] alu_result;
+    #/ wire [`cpu_spec.external_mem_data_width-1`:0] data_memory_alu;
+    #/ wire [`cpu_spec.external_mem_addr_width-1`:0] address_memory_alu;
+    #/ wire [0:0] write_en_memory;
+    #/ wire [0:0] write_en_regfile;
+    #/ wire [`cpu_spec.register_file_addr_width-1`:0] register_file_addr_dest;
+    #/ wire [`cpu_spec.register_file_data_width-1`:0] mem_regfile_test;
+    #/ wire [`cpu_spec.external_mem_data_width-1`:0] mem_external_test;
+    #/ wire [`cpu_spec.register_file_data_width-1`:0] mem_regfile_test1;
+    #/ wire [`cpu_spec.external_mem_data_width-1`:0] mem_external_test1;
+    #/ wire [0:0] flush_pipeline; // flush pipeline when branch prediction fails
+    #/ wire dec_ready;
+    #/ wire exec_ready; // connects CU and Fetch
+    #/ // fe-de; de-cu; cu-alu; alu-fe interfaces
+    #/ wire [`cpu_spec.fetch_idecode_interface_width-1`:0] fetch_idecode_interface;
+    #/ wire [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface;
+    #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
+    #/ wire [`cpu_spec.alu_fetch_interface_width-1`:0] alu_fetch_interface;
+    
+    ports_fetch ={
+        'clk':'clk',
+        'rst':'rst',
+        'imem_addr':'imem_addr',
+        'imem_data':'imem_data',
+        'dec_ready':'dec_ready',
+        'exec_ready':'exec_ready',
+        'flush_pipeline':'flush_pipeline',
+        'fetch_idecode_interface':'fetch_idecode_interface',
+        'alu_fetch_interface':'alu_fetch_interface'
+    }
+    ModuleFetch(cpu_spec=cpu_spec,PORTS=ports_fetch)
+    
+    ports_instr_mem = {
+        'addr':'imem_addr',
+        'data_out':'imem_data',
+    }
+    
+    ModuleInstrMem(cpu_spec=cpu_spec,PORTS=ports_instr_mem)
+    
+    ports_idecode = {
+        'clk':'clk',
+        'rst':'rst',
+        'dec_ready':'dec_ready',
+        'flush_pipeline':'flush_pipeline',
+        'fetch_idecode_interface':'fetch_idecode_interface',
+        'idecode_cu_interface':'idecode_cu_interface'
+    }
+    
+    ModuleDecode(cpu_spec=cpu_spec,PORTS=ports_idecode)
+    
+    ports_cu = {
+        'clk':'clk', #
+        'rst':'rst', #
+        'micro_code_in_normal':'micro_code', #
+        'micro_code_in_speculative':'micro_code_speculative_fetch', #
+        'micro_code_addr_out':'micro_code_addr',
+        'micro_code_addr_speculative_fetch':'micro_code_addr_speculative_fetch',
+        'o_exec_ready_combined':'exec_ready', #
+        'flush_pipeline':'flush_pipeline', #
+        'idecode_cu_interface':'idecode_cu_interface', #
+        'cu_alu_interface':'cu_alu_interface' #
+    }
+    
+    ModuleCU(cpu_spec=cpu_spec,PORTS=ports_cu)
+    
+    
+    # register_file u_register_file(
+    # .clk(clk),
+    # .reg_addr_1(register_file_addr_1),
+    # .reg_addr_2(register_file_addr_2),
+    # .data_out_1(register_data_out_1),
+    # .data_out_2(register_data_out_2),
+    # .write_en(write_en_regfile),
+    # .reg_addr_in(register_file_addr_dest),
+    # .data_in(alu_result),
+    # .mem_test(mem_regfile_test)
+    # );
+
+    ports_regfile = {
+        'clk':'clk',
+        'reg_addr_1':'register_file_addr_1',
+        'reg_addr_2':'register_file_addr_2',
+        'data_out_1':'register_data_out_1',
+        'data_out_2':'register_data_out_2',
+         'write_en':'write_en_regfile',
+        'reg_addr_in':'register_file_addr_dest',
+         'data_in':'alu_result',
+        'mem_test':'mem_regfile_test'
+    }
+    
+    ModuleRegisterFile(cpu_spec=cpu_spec,PORTS=ports_regfile)
+    
+    ports_micro_instr_mem = {
+        'micro_code_addr_in':'micro_code_addr',
+        'micro_code_data_out':'micro_code',
+        'micro_code_addr_speculative_fetch_in':'micro_code_addr_speculative_fetch',
+        'micro_code_data_speculative_fetch_out':'micro_code_speculative_fetch'
+    }
+    
+    ModuleMicroInstrMem(cpu_spec=cpu_spec,PORTS=ports_micro_instr_mem)
+    
+    ports_external_mem ={
+        'clk':'clk',
+        'micro_code':'micro_code',
+        'addr':'address_memory_alu',
+        'data_in':'alu_result',
+        'data_out':'data_memory_alu',
+        'data_test':'mem_external_test'
+    }
+    
+    ModuleExternalMem(cpu_spec=cpu_spec,PORTS=ports_external_mem)
+
+    ports_alu = {
+        'clk':'clk',
+        'alu_regfile_in_1':'register_data_out_1',
+        'alu_regfile_in_2':'register_data_out_2',
+        'alu_memory_in':'data_memory_alu',
+        'alu_result':'alu_result',
+        'alu_regfile_address_out_1':'register_file_addr_1',
+        'alu_regfile_address_out_2':'register_file_addr_2',
+        'alu_memory_address_out':'address_memory_alu',
+        'alu_memory_write_en_out':'write_en_memory',
+        'alu_regfile_write_en_out':'write_en_regfile',
+        'alu_regfile_address_out':'register_file_addr_dest',
+        'cu_alu_interface':'cu_alu_interface',
+        'alu_fetch_interface':'alu_fetch_interface'
+    }
+    ModuleALU(cpu_spec=cpu_spec, PORTS=ports_alu)
+    
+    #/ always #5 clk = ~clk;
+    
+    #/ initial begin
+    #/   clk = 0;
+    #/   rst = 1;
+    #/   #10 rst = 0;
+    #/ end
+    instruction_memory_list = [
+    '1000_0000_0000_1000_0000_0000_0000_0000',    # R0 = 0xF
+    '0000_0001_0000_0000_0000_0001_0000_0000',    # R0 = 0xF+2 = 0x11
+    '0000_0010_0000_0010_0000_0000_0000_0000',    # R0 = 3-0x11 = FFF2
+    '0000_0001_0000_1000_0000_0000_0000_0001',    # R1 = R0 + R8 = 0xFFF2 + 0x0009
+    '0100_0000_0001_0000_0000_0000_0000_0000',    # JUMP to I8
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',     
+    '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0
+    '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000'
+    ]
+    
+    #/ initial begin
+    for i in range(len(instruction_memory_list)):
+        #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`instruction_memory_list[i]`;
+        pass
+        
+        
+    
+    
+    micro_instruction_memory_dict = {
+    '0' : '16\'b0001_0000_1100_0001',
+    '1' : '16\'b0010_0000_1100_0001',
+    '2' : '16\'b0011_0000_1100_0000',
+    '3' : '16\'b0100_0000_1100_0000',
+    '4' : '16\'b0101_0000_1100_0000',
+    '4' : '16\'b0101_0000_1100_0000',
+    '5' : '16\'b0110_0000_1100_0000',
+    '6' : '16\'b0111_0000_1100_0000',
+    '7' : '16\'b1000_0000_1100_0000',
+    '8' : '16\'b0000_1000_0001_0001',
+    '9' : '16\'b0000_0000_0000_1001',
+    '9' : '16\'b0000_0000_0000_1001',
+    '10' : '16\'b0001_0010_0100_0001',
+    '11' : '16\'b0000_1000_0001_0001',
+    '12' : '16\'b0000_0000_0000_1001',
+    '12' : '16\'b0000_0000_0000_1001',
+    '13' : '16\'b0010_0010_0100_0001',
+    '14' : '16\'b0000_1000_0001_0001',
+    '15' : '16\'b0000_0000_0000_1001',
+    '15' : '16\'b0000_0000_0000_1001',
+    '16' : '16\'b0011_0010_0100_0001',
+    '17' : '16\'b0000_1000_0001_0001',
+    '18' : '16\'b0000_0000_0000_1001',
+    '18' : '16\'b0000_0000_0000_1001',
+    '19' : '16\'b0100_0010_0100_0001',
+    '20' : '16\'b0000_1000_0001_0001',
+    '21' : '16\'b0000_0000_0000_1001',
+    '22' : '16\'b0101_0010_0100_0001',
+    '23' : '16\'b0000_1000_0001_0001',
+    '24' : '16\'b0000_0000_0000_1001',
+    '25' : '16\'b0110_0010_0100_0001',
+    '26' : '16\'b0000_1000_0001_0001',
+    '27' : '16\'b0000_0000_0000_1001',
+    '28' : '16\'b0111_0010_0100_0001',
+    '29' : '20\'b0010_0000_1000_0001_0000',
+    '30' : '20\'b0000_0000_0000_0000_1000',
+    '31' : '20\'b0001_0000_0010_0000_0001',
+    '32' :  '16\'b0000_0100_1001_0100',
+    '33' : '16\'b0000_0000_0000_0010',
+    '34' : '16\'b0000_0000_0000_0000',
+    '36' : '16\'b1100_0000_1100_0000',
+    '255' : '16\'b0000_0000_0000_0000',
+    }
+    
+    
+    for index in micro_instruction_memory_dict.keys():
+        data = micro_instruction_memory_dict[index]
+        #/ u_0000000001_MicroInstrMem0000000001.mem[`index`] = `data`;
+        pass
+        
+    
+    
+    external_memory_list = [
+    "0000_0001",
+    "0001_0010",
+    "0010_0000",
+    "0000_0100",
+    "0000_0101",
+    "0000_0110",
+    "0000_0111",
+    "0000_1000",
+    "0000_1111",
+    "0000_1010",
+    "0000_1011"
+    ]
+    
+    for i in range(len(external_memory_list)):
+        #/ u_0000000001_ExternalMem0000000001.mem[`i`] = `cpu_spec.external_mem_data_width`'b`external_memory_list[i]`;
+        pass
+    
+    register_file_memory_list = [
+    "0000_0000_0000_0001",
+    "0000_0000_0000_0010",
+    "0000_0000_0000_0011",
+    "0000_0000_0000_0101",
+    "0000_0000_0000_0110",
+    "0000_0000_0000_0111",
+    "0000_0000_0000_1000",
+    "0000_0000_0000_1001",
+    "0000_0000_0000_1010",
+    "0000_0000_0000_1011",
+    "0000_0000_0000_1100",
+    "0000_0000_0000_1101",
+    "0000_0000_0000_1110",
+    "0000_0000_0000_1111",
+    "0000_0000_0001_0000",
+    "0000_0000_0001_0001",
+    "0000_0000_0001_0010",
+    "0000_0000_0001_0011"
+    ]
+    
+    for i in range(len(register_file_memory_list)):
+        #/ u_0000000001_RegisterFile0000000001.mem[`i`] = `cpu_spec.register_file_data_width`'b`register_file_memory_list[i]`;
+        pass
+    
+    #/ end
+    
+    
+    #/ initial begin
+    #/     $dumpfile("wave.vcd"); 
+    #/     $dumpvars(0, CPUTop0000000001);
+    #/     #2500
+    #/     $finish;
+    #/ end
+    #/ endmodule
+    pass
+    
+    
+moduleloader.set_naming_mode('SEQUENTIAL')  
+moduleloader.set_root_dir('RTL_GEN')
+moduleloader.set_debug_mode(True)
+ModuleCPUTop(cpu_spec=my_cpu_spec)
+
+
+
+import os
+
+# 定义目标文件夹路径（默认当前目录）
+folder_path = 'RTL_GEN'
+# 定义输出的新文件名
+output_filename = 'cpu_tb.v'
+
+# 获取所有文件（排除目录和输出文件自身）
+file_list = [
+    f for f in os.listdir(folder_path)
+    if os.path.isfile(os.path.join(folder_path, f)) and f != output_filename
+]
+
+# 按文件名排序（可选，根据需求决定是否保留）
+file_list.sort()
+
+# 写入合并内容
+with open(os.path.join(folder_path, output_filename), 'w', errors='ignore') as outfile:
+    for filename in file_list:
+        file_path = os.path.join(folder_path, filename)
+        with open(file_path, 'r', errors='ignore') as infile:
+            outfile.write(f"// === Contents from: {filename} ===\n")
+            outfile.write(infile.read())
+            outfile.write("\n\n")  # 添加两个换行作为文件分隔符
+
+
 
