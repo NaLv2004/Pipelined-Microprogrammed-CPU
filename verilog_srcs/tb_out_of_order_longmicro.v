@@ -1076,7 +1076,7 @@ u_register_file.mem[17] = 16'b0000_0000_0001_0011;
 // [7]   alu_in_1 <- alu_regfile_out_1  // fetching operand 1 in register file
 // [6]   alu_in_2 <- alu_regfile_out_2  // fetching operand 2 in register file
 // [5]   alu_in_2 <- IR[7:0]   // one of the source operands is an immediate number in IR (used in jump/branch or instructions with imm)
-// [4]   MAR <- IR[15:0] // used in load and store
+// [4]   MAR <- addr_in // used in load and store
 // [3]   memory <- MBR
 //// [2]   alu_regfile_out_1 <- alu_result
 // [2]   MBR <- alu_result

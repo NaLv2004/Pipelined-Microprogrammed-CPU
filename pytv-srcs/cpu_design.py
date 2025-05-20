@@ -9,6 +9,170 @@ sys.path.append(dirname(dirname(__file__)))
 sys.path.append(dirname(__file__))
 # from PyTU import QuMode, OfMode, QuType
 
+
+def int_to_8bit_binary(num):
+    return "{0:08b}".format(num)
+
+
+# ======================================== INSTRUCTION SET CONFIGURATIONS ==========================================
+instruction_set_dict = {
+    "add": "00000000",
+    "sub": "00000001",
+    "slt": "00000010",
+    "and": "00000011",
+    "or": "00000100",
+    "xor": "00000101",
+    "sll": "00000110",
+    "srl": "00000111",
+    "addi": "00100000",
+    "slti": "00100001",
+    "andi": "00100010",
+    "ori": "00100011",
+    "xori": "00100100",
+    "slli": "00100101",
+    "srli": "00100110",
+    "jal": "01000000",
+    "beq": "01100000",
+    "bne": "01100001",
+    "blt": "01100010",
+    "bltu": "01100011",
+    "load": "10000000",
+    "store": "10000001"
+}
+
+operation_list = ['add','sub','slt','and','or','xor','sll','srl']
+instruction_type_list = ['TWO_REGS','REG_MEM','REG_IMM','UNCOND_BRANCH','COND_BRANCH','LOAD','STORE']
+
+# micro_code_addr_dict = {}
+# micro_code_len_dict = {}
+def construct_micro_code_addr_list():
+    micro_code_addr_list = [None]*500
+    micro_code_list = [None] * 500
+    micro_code_addr_dict = [None] * 500
+    opcode_list = [None] * 500
+    comments_list = [None] * 500
+    micro_code_len_dict = [None] * 500
+    curr_addr = 0
+    i_micro_code_group = 0
+    for instruction_type in instruction_type_list:
+        if instruction_type == 'TWO_REGS':    
+            for operation in operation_list:
+                micro_code = '16\'b'+instruction_set_dict[operation][4:8]+'0000'+'1100'+'0001'
+                opcode = '8\'b000'+'00'+instruction_set_dict[operation][5:8]
+                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+                opcode_list [i_micro_code_group] = opcode
+                micro_code_len_dict [i_micro_code_group] = '3\'b000'
+                micro_code_list [i_micro_code_group] = [micro_code]
+                comments_list [i_micro_code_group] = [operation+' rd, rs1, rs2']
+                i_micro_code_group += 1
+                curr_addr += 1
+        elif instruction_type == 'REG_MEM':
+            for operation in operation_list:
+                micro_code = '16\'b'+instruction_set_dict[operation][4:8]+'0000'+'1100'+'0001'
+                # operand 1 in memory, operand 2 in register file
+                micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
+                micro_code_2 = '20\'b0000'+'0000'+'0000'+'0000'+'1000'
+                micro_code_3 = '20\'b0001'+'0'+instruction_set_dict[operation][5:8]+'0010'+'0100'+'0001'
+                opcode = '8\'b000'+'10'+instruction_set_dict[operation][5:8]
+                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+                opcode_list [i_micro_code_group] = opcode
+                micro_code_len_dict [i_micro_code_group] = '3\'b010'
+                micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
+                comments_list [i_micro_code_group] = [operation+' rd, [mem1], rs2']
+                i_micro_code_group += 1
+                curr_addr += 3
+                
+                # operand 1 in register file, operand 2 in memory
+                micro_code_1 = '20\'b0010' + '0000' + '0100' + '0001' + '0000'
+                micro_code_2 = '20\'b0000' + '0000' + '0000' + '0000' + '1000'
+                micro_code_3 = '20\'b0001' + '0'+instruction_set_dict[operation][5:8]+'0001'+'1000'+'0001'
+                opcode = '8\'b000'+'01'+instruction_set_dict[operation][5:8]
+                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+                opcode_list [i_micro_code_group] = opcode
+                micro_code_len_dict [i_micro_code_group] = '3\'b010'
+                micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
+                comments_list [i_micro_code_group] = [operation+' rd, rs1, [mem2]']
+                i_micro_code_group += 1
+                curr_addr += 3      
+        elif instruction_type == 'REG_IMM':
+             # operand 1 in register file, operand 2 is an immediate value
+             for operation in operation_list:
+                micro_code = '21\'b' + '1' + '0000' + instruction_set_dict[operation][4:8] + '0000' + '1000' + '0001'
+                opcode = '8\'b001'+'00'+instruction_set_dict[operation][5:8]
+                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+                opcode_list [i_micro_code_group] = opcode
+                micro_code_len_dict [i_micro_code_group] = '3\'b000'
+                micro_code_list [i_micro_code_group] = [micro_code]
+                comments_list [i_micro_code_group] = [operation+' rd, rs1, imm']
+                i_micro_code_group += 1
+                curr_addr += 1    
+        elif instruction_type == 'UNCOND_BRANCH':
+            micro_code = '16\'b0000000000000000'
+            opcode = '8\'b010'+'00'+'000'
+            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+            opcode_list [i_micro_code_group] = opcode
+            micro_code_len_dict [i_micro_code_group] = '3\'b000'
+            micro_code_list [i_micro_code_group] = [micro_code]
+            comments_list [i_micro_code_group] = ['jump imm']
+            i_micro_code_group += 1
+            curr_addr += 1
+        elif instruction_type == 'COND_BRANCH':
+            micro_code = '16\'b1100000011000000'
+            opcode = '8\'b'+'01100000'
+            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+            opcode_list [i_micro_code_group] = opcode
+            micro_code_len_dict [i_micro_code_group] = '3\'b000'
+            micro_code_list [i_micro_code_group] = [micro_code]
+            comments_list [i_micro_code_group] = ['beq rs1, rs2, imm']
+            i_micro_code_group += 1
+            curr_addr += 1
+        elif instruction_type == 'LOAD':
+            micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
+            micro_code_2 = '20\'b0000'+'0000'+'1000'
+            micro_code_3 = '20\'b0001'+'0000'+'0010'+'0000'+'0001'
+            opcode = '8\'b1000'+'1000'
+            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+            opcode_list [i_micro_code_group] = opcode
+            micro_code_len_dict [i_micro_code_group] = '3\'b010'
+            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
+            comments_list [i_micro_code_group] = ['load rd, [mem1]']
+            i_micro_code_group += 1
+            curr_addr += 3
+        elif instruction_type == 'STORE':
+            micro_code_1 = '16\'b0000_0100_1001_0100'
+            micro_code_2 = '16\'b0000_0000_0000_0010'
+            opcode = '8\'b10000001'
+            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+            opcode_list [i_micro_code_group] = opcode
+            micro_code_len_dict [i_micro_code_group] = '3\'b001'
+            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2]
+            comments_list [i_micro_code_group] = ['store [mem1], rs1']
+            i_micro_code_group += 1
+            curr_addr += 2
+    
+    micro_code_addr_list.append('8\'b'+int_to_8bit_binary(255))
+    micro_code_len_dict [i_micro_code_group] = '3\'b000'
+    micro_code_list [i_micro_code_group] = ['16\'b0000000000000000']
+    comments_list [i_micro_code_group] = ['NO-OP(Used when flushing pipeline)']
+    opcode_list.append('8\'b11111111')
+    i_micro_code_group += 1
+    return micro_code_addr_list, opcode_list, micro_code_len_dict, micro_code_list, comments_list, i_micro_code_group
+
+
+micro_code_addr_list, opcode_list, micro_code_len_dict, micro_code_list, comments_list, n_micro_code_groups = construct_micro_code_addr_list()
+for i in range (0,n_micro_code_groups):
+    if micro_code_addr_list[i] is not None:
+        print(f"addr: {micro_code_addr_list[i]}")
+        print(f"opcode: {opcode_list[i]}")
+        print(f"len: {micro_code_len_dict[i]}")
+        print(f"micro_code: {micro_code_list[i]}")
+        print(f"comments: {comments_list[i]}")
+        print(f"===============================")
+        
+    
+print(f"FINSIHED GENERATING MICRO CODES")
+
+# ======================================== CPU DATA WIDTH CONFIGURATIONS ===========================================
 class cpu_specifications:  
     def __init__(self):
         self.instruction_data_width = 32
@@ -37,10 +201,12 @@ class cpu_specifications:
         self.cu_alu_interface_width = 0
         self.idecode_cu_interface = dict()
         self.idecode_cu_interface_width = 0
+        self.micro_code_addr_list = micro_code_addr_list
+        self.opcode_list = opcode_list
+        self.micro_code_len_dict = micro_code_len_dict
+        self.micro_code_list = micro_code_list
+        # self.allocate_interface(fetch_idecode_interface, 'fetch_idecode')
     
-    
-        
-        
     def allocate_interface(self, interface, interface_name):
         interface_ports = interface.keys()
         port_start_bit = 0
@@ -883,59 +1049,6 @@ def ModuleALU(cpu_spec):
     #/ endmodule
     pass
 
-  
-    
-# reg clk;
-# reg rst;
-# wire [15:0] imem_addr;
-# wire [31:0] imem_data;
-# wire [7:0] register_file_addr_1;
-# wire [7:0] register_file_addr_2;
-# wire [15:0] register_data_out_1;
-# wire [15:0] register_data_out_2;
-# wire [31:0] instr;
-# wire [31:0] instr_idecode_alu;
-# wire [31:0] instr_idecode_cu;
-# wire [31:0] instr_cu_alu;
-# wire [31:0] micro_code;
-# wire [7:0] micro_code_addr_de_cu;
-# wire [7:0] micro_code_addr_cu_alu;
-# wire [31:0] micro_code_speculative_fetch;  // REASSIGN!
-# wire [31:0] micro_code_cu_alu;  // REASSIGN!
-# wire [7:0] micro_code_addr_speculative_fetch;  // REASSIGN!
-# wire [2:0] micro_code_cnt_de_cu;
-# wire [15:0] alu_result;
-# wire [15:0] data_memory_alu;
-# wire [7:0] address_memory_alu;
-# wire [0:0] write_en_memory;
-# wire [0:0] write_en_regfile;
-# wire [7:0] register_file_addr_dest;
-# wire [15:0] mem_regfile_test;
-# wire [15:0] mem_external_test;
-# wire [15:0] mem_regfile_test1;
-# wire [15:0] mem_external_test1;
-# wire [0:0] branch_prediction_failed;
-# wire [0:0] flush_pipeline; // flush pipeline when branch prediction fails
-# wire [7:0] instr_address_not_taken_alu_fe;
-# wire [7:0] instr_address_not_taken_fe_de;
-# wire [7:0] instr_address_not_taken_de_cu;
-# wire [7:0] instr_address_not_taken_cu_alu;
-# wire [7:0] branch_instr_address_alu_fe;
-# wire [7:0] branch_instr_address_fe_de;
-# wire [7:0] branch_instr_address_de_cu;
-# wire [7:0] branch_instr_address_cu_alu;
-# wire branch_prediction_result_alu_fe;
-# wire branch_prediction_result_fe_de;
-# wire branch_prediction_result_de_cu;
-# wire branch_prediction_result_cu_alu;
-# wire is_conditional_branch_alu_fe;
-# wire branch_taken_alu_fe;
-# wire instr_valid;
-# wire dec_ready;
-# wire exec_ready; // connects CU and Fetch
-# wire [31:0] mem_micro_instr_test;  
-    
-
 @ convert 
 def ModuleCPUTop(cpu_spec):
     #/ module CPUTop;
@@ -969,6 +1082,8 @@ def ModuleCPUTop(cpu_spec):
     #/ wire [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface;
     #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
     #/ wire [`cpu_spec.alu_fetch_interface_width-1`:0] alu_fetch_interface;
+    #/ 
+    #/ assign mem_external_test1 = u_0000000001_RegisterFile0000000001.mem[1];
     
     ports_fetch ={
         'clk':'clk',
@@ -1098,6 +1213,23 @@ def ModuleCPUTop(cpu_spec):
     '0000_0001_0000_0000_0000_0010_0000_0000',     
     '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0
     '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000'
+    ]
+    
+    instruction_memory_list = [
+    '1000_0000_0000_1000_0000_0000_0000_0010',    # R2 = mem[8] = 0xF
+    '0000_0001_0000_0000_0000_0001_0000_0000',    # R0 = R0 + R1 = 1 + 2 = 3 ----> R0 = 0xC
+    '0000_0010_0000_0010_0000_0000_0000_0000',    # R0 = R2 - R0 = 0xF - 3 = 0xC ----> R0 = 0xF - 0xC = 3 -----> R0 = 0xC
+    '0000_0001_0000_1000_0000_0000_0000_0001',    # R1 = R0 + R8 = 0xC + 0xA = 0x16 -----> R1 = 3 + 0xA = 0xD ------> R1 = 0x16
+    '0100_0000_0001_0000_0000_0000_0000_0000',    # JUMP to I8
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',     
+    '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0 (0x16) -----> 0x0003 ------> 0x3
+    '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2 
     '0000_0001_0000_0000_0000_0001_0000_0000',
     '0000_0001_0000_0000_0000_0010_0000_0000',
     '0000_0001_0000_0000_0000_0001_0000_0000',

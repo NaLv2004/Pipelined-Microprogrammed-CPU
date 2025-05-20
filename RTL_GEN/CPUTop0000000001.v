@@ -29,6 +29,8 @@
  wire [91:0] idecode_cu_interface;
  wire [112:0] cu_alu_interface;
  wire [18:0] alu_fetch_interface;
+
+ assign mem_external_test1 = u_0000000001_RegisterFile0000000001.mem[1];
 Fetch0000000001  u_0000000001_Fetch0000000001(.clk(clk), .rst(rst), .imem_addr(imem_addr), .imem_data(imem_data), .dec_ready(dec_ready), .exec_ready(exec_ready), .flush_pipeline(flush_pipeline), .fetch_idecode_interface(fetch_idecode_interface), .alu_fetch_interface(alu_fetch_interface));
 InstrMem0000000001  u_0000000001_InstrMem0000000001(.addr(imem_addr), .data_out(imem_data));
 Decode0000000001  u_0000000001_Decode0000000001(.clk(clk), .rst(rst), .dec_ready(dec_ready), .flush_pipeline(flush_pipeline), .fetch_idecode_interface(fetch_idecode_interface), .idecode_cu_interface(idecode_cu_interface));
@@ -44,7 +46,7 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
    #10 rst = 0;
  end
  initial begin
- u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010;
  u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
  u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0010_0000_0000_0000_0000;
  u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;
