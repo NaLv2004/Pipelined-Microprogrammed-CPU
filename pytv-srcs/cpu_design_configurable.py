@@ -1,163 +1,20 @@
+
+import sys
+from os.path import dirname, abspath
+sys.path.append(dirname(dirname(__file__)))
+sys.path.append(dirname(__file__))
+
 import pytv
 from pytv.Converter import convert
 from pytv.ModuleLoader import moduleloader
 import sys
 from os.path import dirname, abspath
 import math
+from parse_asembly import assemble
+from generate_micro_code import construct_micro_code_addr_list  
 
-sys.path.append(dirname(dirname(__file__)))
-sys.path.append(dirname(__file__))
+
 # from PyTU import QuMode, OfMode, QuType
-
-
-def int_to_8bit_binary(num):
-    return "{0:08b}".format(num)
-
-
-# ======================================== INSTRUCTION SET CONFIGURATIONS ==========================================
-instruction_set_dict = {
-    "add": "00000000",
-    "sub": "00000001",
-    "slt": "00000010",
-    "and": "00000011",
-    "or": "00000100",
-    "xor": "00000101",
-    "sll": "00000110",
-    "srl": "00000111",
-    "addi": "00100000",
-    "slti": "00100001",
-    "andi": "00100010",
-    "ori": "00100011",
-    "xori": "00100100",
-    "slli": "00100101",
-    "srli": "00100110",
-    "jal": "01000000",
-    "beq": "01100000",
-    "bne": "01100001",
-    "blt": "01100010",
-    "bltu": "01100011",
-    "load": "10000000",
-    "store": "10000001"
-}
-
-operation_list = ['add','sub','slt','and','or','xor','sll','srl']
-instruction_type_list = ['TWO_REGS','REG_MEM','REG_IMM','UNCOND_BRANCH','COND_BRANCH','LOAD','STORE']
-
-# micro_code_addr_dict = {}
-# micro_code_len_dict = {}
-def construct_micro_code_addr_list():
-    micro_code_addr_list = [None]*500
-    micro_code_list = [None] * 500
-    micro_code_addr_dict = [None] * 500
-    opcode_list = [None] * 500
-    comments_list = [None] * 500
-    micro_code_len_dict = [None] * 500
-    curr_addr = 0
-    i_micro_code_group = 0
-    for instruction_type in instruction_type_list:
-        if instruction_type == 'TWO_REGS':    
-            for operation in operation_list:
-                micro_code = '16\'b'+instruction_set_dict[operation][4:8]+'0000'+'1100'+'0001'
-                opcode = '8\'b000'+'00'+instruction_set_dict[operation][5:8]
-                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-                opcode_list [i_micro_code_group] = opcode
-                micro_code_len_dict [i_micro_code_group] = '3\'b000'
-                micro_code_list [i_micro_code_group] = [micro_code]
-                comments_list [i_micro_code_group] = [operation+' rd, rs1, rs2']
-                i_micro_code_group += 1
-                curr_addr += 1
-        elif instruction_type == 'REG_MEM':
-            for operation in operation_list:
-                micro_code = '16\'b'+instruction_set_dict[operation][4:8]+'0000'+'1100'+'0001'
-                # operand 1 in memory, operand 2 in register file
-                micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
-                micro_code_2 = '20\'b0000'+'0000'+'0000'+'0000'+'1000'
-                micro_code_3 = '20\'b0001'+'0'+instruction_set_dict[operation][5:8]+'0010'+'0100'+'0001'
-                opcode = '8\'b000'+'10'+instruction_set_dict[operation][5:8]
-                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-                opcode_list [i_micro_code_group] = opcode
-                micro_code_len_dict [i_micro_code_group] = '3\'b010'
-                micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
-                comments_list [i_micro_code_group] = [operation+' rd, [mem1], rs2']
-                i_micro_code_group += 1
-                curr_addr += 3
-                
-                # operand 1 in register file, operand 2 in memory
-                micro_code_1 = '20\'b0010' + '0000' + '0100' + '0001' + '0000'
-                micro_code_2 = '20\'b0000' + '0000' + '0000' + '0000' + '1000'
-                micro_code_3 = '20\'b0001' + '0'+instruction_set_dict[operation][5:8]+'0001'+'1000'+'0001'
-                opcode = '8\'b000'+'01'+instruction_set_dict[operation][5:8]
-                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-                opcode_list [i_micro_code_group] = opcode
-                micro_code_len_dict [i_micro_code_group] = '3\'b010'
-                micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
-                comments_list [i_micro_code_group] = [operation+' rd, rs1, [mem2]']
-                i_micro_code_group += 1
-                curr_addr += 3      
-        elif instruction_type == 'REG_IMM':
-             # operand 1 in register file, operand 2 is an immediate value
-             for operation in operation_list:
-                micro_code = '21\'b' + '1' + '0000' + instruction_set_dict[operation][4:8] + '0000' + '1000' + '0001'
-                opcode = '8\'b001'+'00'+instruction_set_dict[operation][5:8]
-                micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-                opcode_list [i_micro_code_group] = opcode
-                micro_code_len_dict [i_micro_code_group] = '3\'b000'
-                micro_code_list [i_micro_code_group] = [micro_code]
-                comments_list [i_micro_code_group] = [operation+' rd, rs1, imm']
-                i_micro_code_group += 1
-                curr_addr += 1    
-        elif instruction_type == 'UNCOND_BRANCH':
-            micro_code = '16\'b0000000000000000'
-            opcode = '8\'b010'+'00'+'000'
-            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-            opcode_list [i_micro_code_group] = opcode
-            micro_code_len_dict [i_micro_code_group] = '3\'b000'
-            micro_code_list [i_micro_code_group] = [micro_code]
-            comments_list [i_micro_code_group] = ['jump imm']
-            i_micro_code_group += 1
-            curr_addr += 1
-        elif instruction_type == 'COND_BRANCH':
-            micro_code = '16\'b1100000011000000'
-            opcode = '8\'b'+'01100000'
-            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-            opcode_list [i_micro_code_group] = opcode
-            micro_code_len_dict [i_micro_code_group] = '3\'b000'
-            micro_code_list [i_micro_code_group] = [micro_code]
-            comments_list [i_micro_code_group] = ['beq rs1, rs2, imm']
-            i_micro_code_group += 1
-            curr_addr += 1
-        elif instruction_type == 'LOAD':
-            micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
-            micro_code_2 = '20\'b0000'+'0000'+'1000'
-            micro_code_3 = '20\'b0001'+'0000'+'0010'+'0000'+'0001'
-            opcode = '8\'b1000'+'1000'
-            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-            opcode_list [i_micro_code_group] = opcode
-            micro_code_len_dict [i_micro_code_group] = '3\'b010'
-            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
-            comments_list [i_micro_code_group] = ['load rd, [mem1]']
-            i_micro_code_group += 1
-            curr_addr += 3
-        elif instruction_type == 'STORE':
-            micro_code_1 = '16\'b0000_0100_1001_0100'
-            micro_code_2 = '16\'b0000_0000_0000_0010'
-            opcode = '8\'b10000001'
-            micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-            opcode_list [i_micro_code_group] = opcode
-            micro_code_len_dict [i_micro_code_group] = '3\'b001'
-            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2]
-            comments_list [i_micro_code_group] = ['store [mem1], rs1']
-            i_micro_code_group += 1
-            curr_addr += 2
-    
-    micro_code_addr_list[i_micro_code_group] = '8\'b'+int_to_8bit_binary(255)
-    micro_code_len_dict [i_micro_code_group] = '3\'b000'
-    micro_code_list [i_micro_code_group] = ['16\'b0000000000000000']
-    comments_list [i_micro_code_group] = ['NO-OP(Used when flushing pipeline)']
-    opcode_list[i_micro_code_group]= '8\'b11111111'
-    i_micro_code_group += 1
-    return micro_code_addr_list, opcode_list, micro_code_len_dict, micro_code_list, comments_list, i_micro_code_group
-
 
 micro_code_addr_list, opcode_list, micro_code_len_dict, micro_code_list, comments_list, n_micro_code_groups = construct_micro_code_addr_list()
 for i in range (0,n_micro_code_groups):
@@ -201,10 +58,16 @@ class cpu_specifications:
         self.cu_alu_interface_width = 0
         self.idecode_cu_interface = dict()
         self.idecode_cu_interface_width = 0
+        
+        
+        # micro code configuration
         self.micro_code_addr_list = micro_code_addr_list
         self.opcode_list = opcode_list
-        self.micro_code_len_dict = micro_code_len_dict
+        self.micro_code_len_list = micro_code_len_dict
         self.micro_code_list = micro_code_list
+        self.comments_list = comments_list
+        self.n_micro_code_groups = n_micro_code_groups
+
         # self.allocate_interface(fetch_idecode_interface, 'fetch_idecode')
     
     def allocate_interface(self, interface, interface_name):
@@ -748,51 +611,39 @@ def ModuleDecode(cpu_spec):
     #/ assign instr_out = instr;
     #/ assign dec_ready = ready_reg;
     #/ wire [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_cnt_in;
-    #/ assign opcode = instr[2:0];  // 假设操作码在低3位
-    #/ assign rs1 = instr[7:3];     // 源寄存器1
-    #/ assign rs2 = instr[12:8];    // 源寄存器2
-    #/ assign rd = instr[15:13];    // 目的寄存器（示例位置）
+    #/ assign opcode = instr[2:0];  
+    #/ assign rs1 = instr[7:3];     
+    #/ assign rs2 = instr[12:8];    
+    #/ assign rd = instr[15:13];    
     #/ assign micro_code = micro_code_reg;
     #/ assign instr_address_not_taken_de_cu = instr_address_not_taken_fe_de;
     #/ assign branch_prediction_result_de_cu = branch_prediction_result_fe_de;
     #/ assign branch_instr_address_de_cu = branch_instr_address_fe_de;
-    #/ assign micro_code_addr_out = 
-    #/     (flush_pipeline==1'b1) ? 8'b1111_1111 : // flush pipeline (no operations)
-    #/     (instr[31:24] == 8'b00000000) ? 8'b1111_1111 : // addi)
-    #/     (instr[31:24] == 8'b00000001) ? 8'b0000_0000 : // add
-    #/     (instr[31:24]== 8'b00010001) ? 8'b0000_1000 : // add, first source operand is from memory
-    #/    // (instr[31:24] == 8'b10000000) ? 8'b0000_0001 : // load
-    #/     (instr[31:24] == 8'b00000011) ? 8'b0000_0010 : // add
-    #/     (instr[31:24] == 8'b00000010) ? 8'b0000_0001 : // sub
-    #/     (instr[31:24] == 8'b00000101) ? 8'b0000_0100 : // jmpgez
-    #/     (instr[31:24] == 8'b10000000) ? 8'b0001_1101 :  // load
-    #/     (instr[31:24] == 8'b10000001) ? 8'b0010_0000 : // store
-    #/     (instr[31:24] == 8'b01000000) ? 8'b0010_0010 : // jal (unconditional branch) 
-    #/     (instr[31:24] == 8'b01100000) ? 8'b0010_0100 : // beq
-    #/     8'b1111_1111;  // default
+    for i_micro_code_group, micro_code_addr in enumerate(cpu_spec.micro_code_addr_list):
+        if micro_code_addr is None:
+            break
+        if i_micro_code_group == 0:
+            #/ assign micro_code_addr_out = 
+            #/      (flush_pipeline==1'b1) ? 8'b1111_1111 : // flush pipeline (no operations))   8'b1111_1111;
+            pass
+        #/      (instr[31:24]==`cpu_spec.opcode_list[i_micro_code_group]`) ? `micro_code_addr`: 
+    #/      8'b1111_1111;
     #/ //assign micro_code_addr_out = instr[31:24];
-    #/ // counter: n of micro codes following this address
-    #/ assign micro_code_cnt_out = 
-    #/     (flush_pipeline==1'b1) ? 3'b000 : // flush pipeline (no operations)
-    #/     (instr[31:24] == 8'b0000_0000) ? 3'b000 : // addi)
-    #/     (instr[31:24] == 8'b0000_0011) ? 3'b010 :
-    #/     (instr[31:24] == 8'b0001_0001) ? 3'b010 : // add, first source operand is from memory
-    #/     (instr[31:24] == 8'b1000_0000) ? 3'b010 : // load
-    #/     (instr[31:24] == 8'b1000_0001) ? 3'b001 : // store
-    #/     3'b000;                   
-    #/ // 控制信号寄存器
+    #/ // counter: n of micro codes following this address     
+    for i_micro_code_group, micro_code_len in enumerate(cpu_spec.micro_code_len_list):
+        if micro_code_len is None:
+            break
+        if i_micro_code_group == 0:
+            #/ assign micro_code_cnt_out = 
+            #/      (flush_pipeline==1'b1) ? 3'b000 : // flush pipeline (no operations))   3'b000;
+            pass
+        #/      (instr[31:24]==`cpu_spec.opcode_list[i_micro_code_group]`) ? `micro_code_len`: 
+    #/      3'b000;         
     #/ always @(posedge clk or posedge rst) begin
     #/     if (rst) begin
     #/         ready_reg <= 1'b0;
     #/     end else begin
-    #/         // 简单示例：始终准备接收指令
     #/         ready_reg <= 1'b1;
-    #/         // instr_out_reg <= instr;
-    #/         // 更复杂的控制示例：
-    #/         // if (pipeline_stall_condition) 
-    #/         //     ready_reg <= 1'b0;
-    #/         // else
-    #/         //     ready_reg <= 1'b1;
     #/     end
     #/ end
     #/ always @(posedge clk) begin
@@ -993,9 +844,11 @@ def ModuleALU(cpu_spec):
     #/ assign alu_regfile_address_out_2 = instruction_choosed[15:8];
     #/ assign alu_memory_address_out = (micro_code[11:11] == 1'b1) ?  instruction_choosed[23:16]: 
     #/                                 (micro_code[10:10] == 1'b1) ? instruction_choosed[15:8]: 8'b0000_0000; 
-    #/ assign alu_operand_1 = (micro_code[9:9] == 1'b1) ?  alu_memory_in: 
+    #/ assign alu_operand_1 =  (micro_code[21:21] == 1'b1) ? instruction_choosed[23:16]: // first operand is an immediate value
+    #/                        (micro_code[9:9] == 1'b1) ?  alu_memory_in: 
     #/                        (micro_code[7:7] == 1'b1) ? alu_regfile_in_1: 16'b0;
-    #/ assign alu_operand_2 = (micro_code[8:8] == 1'b1) ?  alu_memory_in:
+    #/ assign alu_operand_2 = (micro_code[20:20] == 1'b1) ? instruction_choosed[15:8]: // second operand is an immediate value
+    #/                        (micro_code[8:8] == 1'b1) ?  alu_memory_in:
     #/                        (micro_code[6:6] == 1'b1) ? alu_regfile_in_2: 
     #/                        (micro_code[5:5] == 1'b1) ? instruction_choosed[7:0] : 16'b0;
     #/ assign alu_regfile_write_en_out = (micro_code[0:0]==1'b1) ? 1'b1: 1'b0;
@@ -1236,6 +1089,39 @@ def ModuleCPUTop(cpu_spec):
     '0000_0001_0000_0000_0000_0010_0000_0000'
     ]
     
+    
+    instruction_memory_list = [
+    '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 0
+    '1000_0001_0000_0000_0000_0001_0000_0000',    # mem[1] <= R0 (0x61) (store reg)    // 1
+    '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)   // 2  0x61 - 3 = 0x5E  // 0xF2 - 3 = 0xEF
+    '0100_0000_0001_0000_0000_0000_0000_0000',    # JUMP to I8  // 3
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',     
+    '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0 (0x16) -----> 0x0003 ------> 0x3 // 8 mem[0]  = 0x5E
+    '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)  // 9  0x5E - 3 = 0x5B
+    '1001_0001_1111_0000_0000_0000_0000_0000',    # mem[0] <= 0xF0(store imm)   // 10  // mem[0] = 0xF0
+    '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 11  R0 = 0x5B + 0x60 = 91 + 96 = 187 = 0xBB
+    '0001_0001_0000_0000_0000_0001_0000_0000',    # R0 = mem[0] + R1 (mem-reg add)  // 12  R0 = 0xF0 + 2 = 0xF2
+    '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2 // 13
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000',
+    '0000_0001_0000_0000_0000_0001_0000_0000',
+    '0000_0001_0000_0000_0000_0010_0000_0000'
+    ]
+    # instruction_memory_list = [
+    # 'add, rs1[1], rs2[2], rd[3]',
+    # 'add, mem[1], rs2[3], rd[4]',
+    # 'sub, rs1[1], rs2[2], rd[3]',
+    # 'load, mem[1], rd[4]',
+    # 'jump, 8',
+    # 'store, rs1[1], mem[2]'
+    # ]
+    # my_assemble = assemble(instruction_memory_list)
+    
+    
+    # print(my_assemble)
+    
     #/ initial begin
     for i in range(len(instruction_memory_list)):
         #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`instruction_memory_list[i]`;
@@ -1290,12 +1176,25 @@ def ModuleCPUTop(cpu_spec):
     }
     
     
-    for index in micro_instruction_memory_dict.keys():
-        data = micro_instruction_memory_dict[index]
-        #/ u_0000000001_MicroInstrMem0000000001.mem[`index`] = `data`;
-        pass
-        
+    # for index in micro_instruction_memory_dict.keys():
+    #     data = micro_instruction_memory_dict[index]
+    #     #/ u_0000000001_MicroInstrMem0000000001.mem[`index`] = `data`;
+    #     pass
     
+    # enumerate micro_code_list
+    address = 0
+    for index, micro_code_group in enumerate(cpu_spec.micro_code_list):
+        if micro_code_group is None:
+            break
+        #/ // `cpu_spec.comments_list[index]`;
+        if micro_code_group is not None:
+            for micro_code in micro_code_group:
+                if micro_code is not None:
+                    #/ u_0000000001_MicroInstrMem0000000001.mem[`address`] = `micro_code`;
+                    address += 1
+    
+    #/ u_0000000001_MicroInstrMem0000000001.mem[255] = 16'b0000_0000;
+        
     
     external_memory_list = [
     "0000_0001",
@@ -1354,7 +1253,7 @@ def ModuleCPUTop(cpu_spec):
     
     
 moduleloader.set_naming_mode('SEQUENTIAL')  
-moduleloader.set_root_dir('RTL_GEN')
+moduleloader.set_root_dir('RTL_GEN_NEW')
 moduleloader.set_debug_mode(True)
 ModuleCPUTop(cpu_spec=my_cpu_spec)
 
@@ -1363,7 +1262,7 @@ ModuleCPUTop(cpu_spec=my_cpu_spec)
 import os
 
 # 定义目标文件夹路径（默认当前目录）
-folder_path = 'RTL_GEN'
+folder_path = 'RTL_GEN_NEW'
 # 定义输出的新文件名
 output_filename = 'cpu_tb.v'
 

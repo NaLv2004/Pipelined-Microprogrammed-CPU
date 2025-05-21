@@ -43,10 +43,10 @@
  assign instr_out = instr;
  assign dec_ready = ready_reg;
  wire [7:0] micro_code_cnt_in;
- assign opcode = instr[2:0];  // 假设操作码在低3位
- assign rs1 = instr[7:3];     // 源寄存器1
- assign rs2 = instr[12:8];    // 源寄存器2
- assign rd = instr[15:13];    // 目的寄存器（示例位置）
+ assign opcode = instr[2:0];
+ assign rs1 = instr[7:3];
+ assign rs2 = instr[12:8];
+ assign rd = instr[15:13];
  assign micro_code = micro_code_reg;
  assign instr_address_not_taken_de_cu = instr_address_not_taken_fe_de;
  assign branch_prediction_result_de_cu = branch_prediction_result_fe_de;
@@ -83,8 +83,9 @@
       (instr[31:24]==8'b00100111) ? 8'b00110111:
       (instr[31:24]==8'b01000000) ? 8'b00111000:
       (instr[31:24]==8'b01100000) ? 8'b00111001:
-      (instr[31:24]==8'b10001000) ? 8'b00111010:
+      (instr[31:24]==8'b10000000) ? 8'b00111010:
       (instr[31:24]==8'b10000001) ? 8'b00111101:
+      (instr[31:24]==8'b10010001) ? 8'b00111111:
       (instr[31:24]==8'b11111111) ? 8'b11111111:
       8'b1111_1111;
  //assign micro_code_addr_out = instr[31:24];
@@ -121,22 +122,16 @@
       (instr[31:24]==8'b00100111) ? 3'b000:
       (instr[31:24]==8'b01000000) ? 3'b000:
       (instr[31:24]==8'b01100000) ? 3'b000:
-      (instr[31:24]==8'b10001000) ? 3'b010:
+      (instr[31:24]==8'b10000000) ? 3'b010:
       (instr[31:24]==8'b10000001) ? 3'b001:
+      (instr[31:24]==8'b10010001) ? 3'b001:
       (instr[31:24]==8'b11111111) ? 3'b000:
       3'b000;
  always @(posedge clk or posedge rst) begin
      if (rst) begin
          ready_reg <= 1'b0;
      end else begin
-         // 简单示例：始终准备接收指令
          ready_reg <= 1'b1;
-         // instr_out_reg <= instr;
-         // 更复杂的控制示例：
-         // if (pipeline_stall_condition)
-         //     ready_reg <= 1'b0;
-         // else
-         //     ready_reg <= 1'b1;
      end
  end
  always @(posedge clk) begin
