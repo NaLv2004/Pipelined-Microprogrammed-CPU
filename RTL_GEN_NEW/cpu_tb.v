@@ -184,23 +184,20 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
    #10 rst = 0;
  end
  initial begin
- u_0000000001_InstrMem0000000001.mem[0] = 32'b0010_0001_0000_0000_0110_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[1] = 32'b1000_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[3] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[4] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[7] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[8] = 32'b0000_0010_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[9] = 32'b1001_0001_1111_0000_0000_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[10] = 32'b0010_0001_0000_0000_0110_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[11] = 32'b0001_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[12] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;
- u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[14] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[15] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[16] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010;
+ u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0010_0000_0000_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;
+ u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;
+ u_0000000001_InstrMem0000000001.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+ u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
  // ['add rd, rs1, rs2'];
  u_0000000001_MicroInstrMem0000000001.mem[0] = 16'b0001000011000001;
  // ['sub rd, rs1, rs2'];
@@ -294,8 +291,8 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
  u_0000000001_MicroInstrMem0000000001.mem[59] = 20'b000000001000;
  u_0000000001_MicroInstrMem0000000001.mem[60] = 20'b00010000001000000001;
  // ['store [mem1], rs1'];
- u_0000000001_MicroInstrMem0000000001.mem[61] = 16'b0000_0100_1001_0100;
- u_0000000001_MicroInstrMem0000000001.mem[62] = 16'b0000_0000_0000_0010;
+ u_0000000001_MicroInstrMem0000000001.mem[61] = 16'b0;
+ u_0000000001_MicroInstrMem0000000001.mem[62] = 16'b0;
  // ['store [mem1], imm'];
  u_0000000001_MicroInstrMem0000000001.mem[63] = 22'b10_0000_0000_0100_0001_0100;
  u_0000000001_MicroInstrMem0000000001.mem[64] = 16'b0000_0000_0000_0010;
@@ -409,11 +406,12 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
  assign instr_cu_out = cu_instruction_reg;
  assign instruction_normal = instruction_normal_reg;
  assign o_exec_ready_normal = (micro_code_cnt_reg==3'b0) ? 1'b1 : 1'b0;
-JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpeculativeFetch0000000001(.micro_code_normal(micro_code_in_normal), .micro_code_speculative(micro_code_in_speculative), .instruction_normal(instruction_normal), .instruction_speculative(instr_cu_out), .is_micro_code_not_conflict(o_exec_ready_speculative_fetch));
+JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpeculativeFetch0000000001(.micro_code_normal(micro_code_in_normal), .micro_code_speculative(micro_code_in_speculative), .instruction_normal(instruction_normal), .instruction_speculative(instr_cu_out), .is_micro_code_not_conflict(o_exec_ready_speculative_fetch), .micro_instruction_cnt_speculative(micro_code_cnt_in));
  assign o_exec_ready_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
  // fused micro-code
  assign micro_code_out = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
  // CU is ready to receive new micro-code address when micro-code-reg == 0 (all the micro-codes executed)
+ // revised micro-instruction logic
  always @ (posedge clk or negedge rst)
  begin
      exec_combined_reg <= o_exec_ready_combined;
@@ -427,29 +425,71 @@ JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpecula
          branch_prediction_result_reg <= 1'b0;
          micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
      end
-     if (rst==0) begin
-     if ((micro_code_cnt_reg == 0 | exec_combined_reg) && (!flush_pipeline))  // prev: o_exec_ready_combined
-     begin
-         micro_code_addr_reg <= micro_code_addr_in;
-         micro_code_cnt_reg <= micro_code_cnt_in;
-         cu_instruction_reg <= instr_cu_in;
-         instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
-         branch_instr_address_reg <= branch_instr_address_de_cu;
-         branch_prediction_result_reg <= branch_prediction_result_de_cu;
-         micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
-      end
-      if (micro_code_cnt_reg == 0 && (!flush_pipeline))
-      begin
-         instruction_normal_reg <= instr_cu_in;
-      end
-      if (micro_code_cnt_reg > 0)
-      begin
-         micro_code_cnt_reg <= micro_code_cnt_reg - 1;
-         micro_code_addr_reg <= micro_code_addr_reg + 1;
-         micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
-      end
-      end
+     if ((rst==0) && (!flush_pipeline)) begin    // if no reset signal or pipeline flush
+         if (o_exec_ready_combined) begin
+            if (micro_code_cnt_reg == 3'b0) begin    // if micro_code_cnt_reg == 0, renew the register (fetch a novel normal instruction)
+                instruction_normal_reg <= instr_cu_in;           
+                micro_code_cnt_reg <= micro_code_cnt_in;
+                micro_code_addr_reg <= micro_code_addr_in;
+            end
+            else if (micro_code_cnt_reg > 0) begin    
+                micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+                micro_code_addr_reg <= micro_code_addr_reg + 1;
+                micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+            end
+            cu_instruction_reg <= instr_cu_in;
+            instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+            branch_instr_address_reg <= branch_instr_address_de_cu;
+            branch_prediction_result_reg <= branch_prediction_result_de_cu;
+           
+         end else begin
+            if (micro_code_cnt_reg > 3'b0)
+            begin
+                micro_code_cnt_reg <= micro_code_cnt_reg-1;
+                micro_code_addr_reg <= micro_code_addr_reg+1;
+                micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+            end
+         end
+
+     end
  end
+//  always @ (posedge clk or negedge rst)
+//  begin
+//      exec_combined_reg <= o_exec_ready_combined;
+//      if (rst || flush_pipeline) begin
+//          micro_code_cnt_reg <= 3'b0;
+//          micro_code_addr_reg <= 8'b1111_1111;
+//          cu_instruction_reg <= 32'b0;
+//          instruction_normal_reg <= 32'b0;
+//          instr_address_not_taken_reg <= 8'b0;
+//          branch_instr_address_reg <= 8'b0;
+//          branch_prediction_result_reg <= 1'b0;
+//          micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+//      end
+//      if (rst==0) begin
+//      if (((micro_code_cnt_reg == 3'b0) || exec_combined_reg) && (!flush_pipeline))  // prev: o_exec_ready_combined
+//      begin
+//          micro_code_addr_reg <= micro_code_addr_in;
+//          // micro_code_cnt_reg <= micro_code_cnt_in;
+//          cu_instruction_reg <= instr_cu_in;
+//          instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+//          branch_instr_address_reg <= branch_instr_address_de_cu;
+//          branch_prediction_result_reg <= branch_prediction_result_de_cu;
+//          // micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+//       end
+//       if (micro_code_cnt_reg == 0 && (!flush_pipeline))
+//       begin
+//          instruction_normal_reg <= instr_cu_in;
+//          micro_code_cnt_reg <= micro_code_cnt_in;
+//       end
+//       if (micro_code_cnt_reg > 0)
+//       begin
+//          micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+//          micro_code_addr_reg <= micro_code_addr_reg + 1;
+//          micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+//       end
+//       end
+//  end
  endmodule
 
 
@@ -578,7 +618,7 @@ JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpecula
       (instr[31:24]==8'b00100111) ? 3'b000:
       (instr[31:24]==8'b01000000) ? 3'b000:
       (instr[31:24]==8'b01100000) ? 3'b000:
-      (instr[31:24]==8'b10000000) ? 3'b010:
+      (instr[31:24]==8'b10000000) ? 3'b100:
       (instr[31:24]==8'b10000001) ? 3'b001:
       (instr[31:24]==8'b10010001) ? 3'b001:
       (instr[31:24]==8'b11111111) ? 3'b000:
@@ -756,13 +796,16 @@ OneBitBranchPredictor0000000001  u_0000000001_OneBitBranchPredictor0000000001(.c
      input [31:0] micro_code_speculative,
      input [31:0] instruction_normal,
      input [31:0] instruction_speculative,
+     input [2:0] micro_instruction_cnt_speculative,
      output is_micro_code_not_conflict
      );
  wire is_micro_code_conflict;
  wire is_micro_code_dependent;
+ wire is_micro_code_multi_cycle;
  assign is_micro_code_conflict = (| (micro_code_speculative[31:0] & micro_code_normal[31:0])) ? 1'b1:
                                (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
  assign is_micro_code_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
+ // assign is_micro_code_multi_cycle = // micro_instruction_cnt_speculative == 2b0 ? 1'b0 : 1'b1;
  assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_dependent);
  endmodule
 

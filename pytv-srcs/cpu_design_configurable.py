@@ -257,13 +257,16 @@ def ModuleJudgeNotConflictSpeculativeFetch(cpu_spec):
     #/     input [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_speculative,
     #/     input [`cpu_spec.instruction_data_width-1`:0] instruction_normal,
     #/     input [`cpu_spec.instruction_data_width-1`:0] instruction_speculative,
+    #/     input [`cpu_spec.micro_instruction_cnt_width-1`:0] micro_instruction_cnt_speculative,
     #/     output is_micro_code_not_conflict
     #/     );
     #/ wire is_micro_code_conflict;
     #/ wire is_micro_code_dependent;
+    #/ wire is_micro_code_multi_cycle;
     #/ assign is_micro_code_conflict = (| (micro_code_speculative[`cpu_spec.micro_instruction_data_width-1`:0] & micro_code_normal[`cpu_spec.micro_instruction_data_width-1`:0])) ? 1'b1:
     #/                               (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
     #/ assign is_micro_code_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
+    #/ // assign is_micro_code_multi_cycle = // micro_instruction_cnt_speculative == `cpu_spec.micro_instruction_cnt_width-1`b0 ? 1'b0 : 1'b1;
     #/ assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_dependent);
     #/ endmodule
     pass
@@ -724,7 +727,8 @@ def ModuleCU(cpu_spec):
        'micro_code_speculative': 'micro_code_in_speculative',
         'instruction_normal': 'instruction_normal',
         'instruction_speculative': 'instr_cu_out',
-        'is_micro_code_not_conflict': 'o_exec_ready_speculative_fetch'
+        'is_micro_code_not_conflict': 'o_exec_ready_speculative_fetch',
+        'micro_instruction_cnt_speculative': 'micro_code_cnt_in'
     }
     ModuleJudgeNotConflictSpeculativeFetch(cpu_spec=cpu_spec, PORTS = ports_judge_not_conflict_speculative_fetch)
     #/ assign o_exec_ready_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
@@ -1090,32 +1094,33 @@ def ModuleCPUTop(cpu_spec):
     ]
     
     
-    instruction_memory_list = [
-    '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 0
-    '1000_0001_0000_0000_0000_0001_0000_0000',    # mem[1] <= R0 (0x61) (store reg)    // 1
-    '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)   // 2  0x61 - 3 = 0x5E  // 0xF2 - 3 = 0xEF
-    '0100_0000_0001_0000_0000_0000_0000_0000',    # JUMP to I8  // 3
-    '0000_0001_0000_0000_0000_0010_0000_0000',
-    '0000_0001_0000_0000_0000_0001_0000_0000',
-    '0000_0001_0000_0000_0000_0010_0000_0000',     
-    '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0 (0x16) -----> 0x0003 ------> 0x3 // 8 mem[0]  = 0x5E
-    '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)  // 9  0x5E - 3 = 0x5B
-    '1001_0001_1111_0000_0000_0000_0000_0000',    # mem[0] <= 0xF0(store imm)   // 10  // mem[0] = 0xF0
-    '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 11  R0 = 0x5B + 0x60 = 91 + 96 = 187 = 0xBB
-    '0001_0001_0000_0000_0000_0001_0000_0000',    # R0 = mem[0] + R1 (mem-reg add)  // 12  R0 = 0xF0 + 2 = 0xF2
-    '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2 // 13
-    '0000_0001_0000_0000_0000_0001_0000_0000',
-    '0000_0001_0000_0000_0000_0010_0000_0000',
-    '0000_0001_0000_0000_0000_0001_0000_0000',
-    '0000_0001_0000_0000_0000_0010_0000_0000'
-    ]
     # instruction_memory_list = [
-    # 'add, rs1[1], rs2[2], rd[3]',
-    # 'add, mem[1], rs2[3], rd[4]',
-    # 'sub, rs1[1], rs2[2], rd[3]',
+    # '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 0
+    # '1000_0001_0000_0000_0000_0001_0000_0000',    # mem[1] <= R0 (0x61) (store reg)    // 1
+    # '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)   // 2  0x61 - 3 = 0x5E  // 0xF2 - 3 = 0xEF
+    # '0100_0000_0001_0000_0000_0000_0000_0000',    # JUMP to I8  // 3
+    # '0000_0001_0000_0000_0000_0010_0000_0000',
+    # '0000_0001_0000_0000_0000_0001_0000_0000',
+    # '0000_0001_0000_0000_0000_0010_0000_0000',     
+    # '1000_0001_0000_0000_0000_0000_0000_0000',    # mem[0] <= R0 (0x16) -----> 0x0003 ------> 0x3 // 8 mem[0]  = 0x5E
+    # '0000_0010_0000_0000_0000_0010_0000_0000',    # R0 = R0 - R2 (reg sub)  // 9  0x5E - 3 = 0x5B
+    # '1001_0001_1111_0000_0000_0000_0000_0000',    # mem[0] <= 0xF0(store imm)   // 10  // mem[0] = 0xF0
+    # '0010_0001_0000_0000_0110_0000_0000_0000',    # R0 = R0 + 0x60 (imm add)   // 11  R0 = 0x5B + 0x60 = 91 + 96 = 187 = 0xBB
+    # '0001_0001_0000_0000_0000_0001_0000_0000',    # R0 = mem[0] + R1 (mem-reg add)  // 12  R0 = 0xF0 + 2 = 0xF2
+    # '0110_0000_0000_0011_0000_0011_0000_0100',    # JUMP to I2 // 13
+    # '0000_0001_0000_0000_0000_0001_0000_0000',
+    # '0000_0001_0000_0000_0000_0010_0000_0000',
+    # '0000_0001_0000_0000_0000_0001_0000_0000',
+    # '0000_0001_0000_0000_0000_0010_0000_0000'
+    # ]
+    # instruction_memory_list = [
+    # 'load',
+    # 'add, rs[1], rs[2], rd[3]',
+    # 'add, mem[1], rs[3], rd[4]',
+    # 'sub, rs[1], rs[2], rd[3]',
     # 'load, mem[1], rd[4]',
     # 'jump, 8',
-    # 'store, rs1[1], mem[2]'
+    # 'store, rs[1], mem[2]'
     # ]
     # my_assemble = assemble(instruction_memory_list)
     

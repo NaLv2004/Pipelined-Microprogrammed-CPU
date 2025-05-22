@@ -65,7 +65,7 @@
  assign instr_cu_out = cu_instruction_reg;
  assign instruction_normal = instruction_normal_reg;
  assign o_exec_ready_normal = (micro_code_cnt_reg==3'b0) ? 1'b1 : 1'b0;
-JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpeculativeFetch0000000001(.micro_code_normal(micro_code_in_normal), .micro_code_speculative(micro_code_in_speculative), .instruction_normal(instruction_normal), .instruction_speculative(instr_cu_out), .is_micro_code_not_conflict(o_exec_ready_speculative_fetch));
+JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpeculativeFetch0000000001(.micro_code_normal(micro_code_in_normal), .micro_code_speculative(micro_code_in_speculative), .instruction_normal(instruction_normal), .instruction_speculative(instr_cu_out), .is_micro_code_not_conflict(o_exec_ready_speculative_fetch), .micro_instruction_cnt_speculative(micro_code_cnt_in));
  assign o_exec_ready_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
  // fused micro-code
  assign micro_code_out = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
