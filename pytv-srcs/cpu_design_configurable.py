@@ -735,41 +735,86 @@ def ModuleCU(cpu_spec):
     #/ // fused micro-code 
     #/ assign micro_code_out = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
     #/ // CU is ready to receive new micro-code address when micro-code-reg == 0 (all the micro-codes executed)
+#     always @ (posedge clk or negedge rst)
+#     begin
+#      exec_combined_reg <= o_exec_ready_combined;
+#      if (rst || flush_pipeline) begin
+#          micro_code_cnt_reg <= 3'b0;
+#          micro_code_addr_reg <= 8'b1111_1111;
+#          cu_instruction_reg <= 32'b0;
+#          instruction_normal_reg <= 32'b0;
+#          instr_address_not_taken_reg <= 8'b0;
+#          branch_instr_address_reg <= 8'b0;
+#          branch_prediction_result_reg <= 1'b0;
+#          micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+#      end
+#      if ((rst==0) && (!flush_pipeline)) begin    // if no reset signal or pipeline flush
+#          if (o_exec_ready_combined) begin
+#             if (micro_code_cnt_reg == 3'b0) begin    // if micro_code_cnt_reg == 0, renew the register (fetch a novel normal instruction)
+#                 instruction_normal_reg <= instr_cu_in;           
+#                 micro_code_cnt_reg <= micro_code_cnt_in;
+#                 micro_code_addr_reg <= micro_code_addr_in;
+#             end
+#             else if (micro_code_cnt_reg > 0) begin    
+#                 micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+#                 micro_code_addr_reg <= micro_code_addr_reg + 1;
+#                 micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+#             end
+#             cu_instruction_reg <= instr_cu_in;
+#             instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+#             branch_instr_address_reg <= branch_instr_address_de_cu;
+#             branch_prediction_result_reg <= branch_prediction_result_de_cu;
+           
+#          end else begin
+#             if (micro_code_cnt_reg > 3'b0)
+#             begin
+#                 micro_code_cnt_reg <= micro_code_cnt_reg-1;
+#                 micro_code_addr_reg <= micro_code_addr_reg+1;
+#                 micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+#             end
+#          end
+
+#      end
+#  end
     #/ always @ (posedge clk or negedge rst)
     #/ begin
-    #/     exec_combined_reg <= o_exec_ready_combined;
-    #/     if (rst || flush_pipeline) begin
-    #/         micro_code_cnt_reg <= 3'b0;
-    #/         micro_code_addr_reg <= 8'b1111_1111;
-    #/         cu_instruction_reg <= 32'b0;
-    #/         instruction_normal_reg <= 32'b0;
-    #/         instr_address_not_taken_reg <= 8'b0;
-    #/         branch_instr_address_reg <= 8'b0;
-    #/         branch_prediction_result_reg <= 1'b0;
-    #/         micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
-    #/     end  
-    #/     if (rst==0) begin
-    #/     if ((micro_code_cnt_reg == 0 | exec_combined_reg) && (!flush_pipeline))  // prev: o_exec_ready_combined
-    #/     begin
-    #/         micro_code_addr_reg <= micro_code_addr_in;
-    #/         micro_code_cnt_reg <= micro_code_cnt_in;
+    #/ exec_combined_reg <= o_exec_ready_combined;
+    #/ if (rst || flush_pipeline) begin
+    #/     micro_code_cnt_reg <= 3'b0;
+    #/     micro_code_addr_reg <= 8'b1111_1111;
+    #/     cu_instruction_reg <= 32'b0;
+    #/     instruction_normal_reg <= 32'b0;
+    #/     instr_address_not_taken_reg <= 8'b0;
+    #/     branch_instr_address_reg <= 8'b0;
+    #/     branch_prediction_result_reg <= 1'b0;
+    #/     micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+    #/ end
+    #/ if ((rst==0) && (!flush_pipeline)) begin    // if no reset signal or pipeline flush
+    #/     if (o_exec_ready_combined) begin
+    #/         if (micro_code_cnt_reg == 3'b0) begin    // if micro_code_cnt_reg == 0, renew the register (fetch a novel normal instruction)
+    #/             instruction_normal_reg <= instr_cu_in;           
+    #/             micro_code_cnt_reg <= micro_code_cnt_in;
+    #/             micro_code_addr_reg <= micro_code_addr_in;
+    #/         end
+    #/         else if (micro_code_cnt_reg > 0) begin    
+    #/             micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+    #/             micro_code_addr_reg <= micro_code_addr_reg + 1;
+    #/             micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+    #/         end
     #/         cu_instruction_reg <= instr_cu_in;
     #/         instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
     #/         branch_instr_address_reg <= branch_instr_address_de_cu;
     #/         branch_prediction_result_reg <= branch_prediction_result_de_cu;
-    #/         micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
-    #/      end
-    #/      if (micro_code_cnt_reg == 0 && (!flush_pipeline))
-    #/      begin
-    #/         instruction_normal_reg <= instr_cu_in;
-    #/      end
-    #/      if (micro_code_cnt_reg > 0)
-    #/      begin
-    #/         micro_code_cnt_reg <= micro_code_cnt_reg - 1;
-    #/         micro_code_addr_reg <= micro_code_addr_reg + 1;
-    #/         micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
-    #/      end
-    #/      end
+           
+    #/     end else begin
+    #/         if (micro_code_cnt_reg > 3'b0)
+    #/         begin
+    #/             micro_code_cnt_reg <= micro_code_cnt_reg-1;
+    #/             micro_code_addr_reg <= micro_code_addr_reg+1;
+    #/             micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+    #/         end
+    #/     end
+    #/ end
     #/ end
     #/ endmodule
     pass
@@ -1258,7 +1303,7 @@ def ModuleCPUTop(cpu_spec):
     
     
 moduleloader.set_naming_mode('SEQUENTIAL')  
-moduleloader.set_root_dir('RTL_GEN_NEW')
+moduleloader.set_root_dir('RTL_GEN_OOD')
 moduleloader.set_debug_mode(True)
 ModuleCPUTop(cpu_spec=my_cpu_spec)
 
@@ -1266,8 +1311,7 @@ ModuleCPUTop(cpu_spec=my_cpu_spec)
 
 import os
 
-# 定义目标文件夹路径（默认当前目录）
-folder_path = 'RTL_GEN_NEW'
+folder_path = 'RTL_GEN_OOD'
 # 定义输出的新文件名
 output_filename = 'cpu_tb.v'
 
