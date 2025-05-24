@@ -266,9 +266,10 @@ def ModuleJudgeNotConflictSpeculativeFetch(cpu_spec):
     #/ wire is_micro_code_multi_cycle;
     #/ assign is_micro_code_conflict = (| (micro_code_speculative[`cpu_spec.micro_instruction_data_width-1`:0] & micro_code_normal[`cpu_spec.micro_instruction_data_width-1`:0])) ? 1'b1:
     #/                               (| micro_code_normal[11:5]) ? 1'b1 : 1'b0;
-    #/ assign is_micro_code_dependent = (instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]);
-    #/ // assign is_micro_code_multi_cycle = // micro_instruction_cnt_speculative == `cpu_spec.micro_instruction_cnt_width-1`b0 ? 1'b0 : 1'b1;
-    #/ assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_dependent);
+    #/ // there is no data dependency for store in the second cycle
+    #/ assign is_micro_code_dependent = (instruction_normal[31:24]==8'b1000_0001) ? 0 : ((instruction_speculative[23:16]==instruction_normal[7:0])|(instruction_speculative[15:8]==instruction_normal[7:0]));
+    #/ assign is_micro_code_multi_cycle = (micro_instruction_cnt_speculative == `cpu_spec.micro_instruction_cnt_width-1`'b0) ? 1'b0 : 1'b1;
+    #/ assign is_micro_code_not_conflict = ~(is_micro_code_conflict|is_micro_code_dependent|is_micro_code_multi_cycle);
     #/ endmodule
     pass
     
@@ -953,7 +954,8 @@ def ModuleCPUTop(cpu_spec):
     #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
     #/ wire [`cpu_spec.alu_fetch_interface_width-1`:0] alu_fetch_interface;
     #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_cu_external_mem;
-    #/ assign mem_external_test1 = u_0000000001_RegisterFile0000000001.mem[1];
+    #/ assign mem_regfile_test1 = u_0000000001_RegisterFile0000000001.mem[1];
+    #/ assign mem_external_test1 = u_0000000001_ExternalMem0000000001.mem[1];
     
     ports_fetch ={
         'clk':'clk',
@@ -1127,91 +1129,50 @@ def ModuleCPUTop(cpu_spec):
     # '0000_0001_0000_0000_0000_0001_0000_0000',
     # '0000_0001_0000_0000_0000_0010_0000_0000'
     # ]
-    # instruction_memory_list = [
-    # 'load',
-    # 'add, rs[1], rs[2], rd[3]',
-    # 'add, mem[1], rs[3], rd[4]',
-    # 'sub, rs[1], rs[2], rd[3]',
-    # 'load, mem[1], rd[4]',
-    # 'jump, 8',
-    # 'store, rs[1], mem[2]'
-    # ]
-    # my_assemble = assemble(instruction_memory_list)
-    
-    
+    instruction_memory_list = [
+    'load ,mem[8], rd[0]',   # r[0] = 0x000F
+    'load, mem[5], rd[1]',   # r[1] = 0x0006
+    'add, rs[1], rs[2], rd[0]', # r[0] = r[1] + r[2] = 0x0006 + 0x0003 = 0x0009
+    'add, rs[1], 10, rd[0]', # r[0] = r[1] + 0x000A = 0x0006 + 0x000A = 0x0010
+    'store, rs[0], mem[0]', # mem[0] = r[0] = 0x0010
+    'add, mem[1], rs[3], rd[1]', # r[1] = mem[1] + r[3] = 0x0012 + 0x0005 = 0x0017
+    'sub, rs[1], 1, rd[1]', # r[1] = r[1]-1 = 0x0016
+    'add, rs[1], 10, rd[1]', # r[1] = r[1] + 0x000A = 0x0016 + 0x000A = 0x0020
+    'load, mem[1], rd[4]',
+    'store, rs[1], mem[1]',
+    'add, rs[0], 16, rd[0]', # r[0] = r[0] + 0x0010 = 0x0010 + 0x0010 = 0x0020
+    'beq, rs[0], rs[1], 8',
+    #'jump, 8',
+    'store, rs[1], mem[2]'
+    ]
+    my_assemble = assemble(instruction_memory_list)
+    print('\n')
+    for idx, assemble_line in enumerate(my_assemble):
+        print(f"I[{idx}]: {assemble_line}")
     # print(my_assemble)
     
     #/ initial begin
-    # for i in range(len(instruction_memory_list)):
-    #     #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`instruction_memory_list[i]`;
-    #     pass
+    for i in range(len(instruction_memory_list)):
+        #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`my_assemble[i]`;
+        pass
         
-    #/ u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0001;  // R[1] <= mem[8] (0xF)
-    #/ u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;  // R[0] <= R2 + R0 = 3 + 1 = 0x4
-    #/ u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0001_0000_0011_0000_0000;  // R[0] <= R1 - R[3] = 0xF-5 = 0xA (0xF)
-    #/ u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;  // R[1] <= R[0] + R[8] = 0xA + 0xA = 0x14 
-    #/ u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;  // Jump to I8
-    #/ u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
-    #/ u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
-    #/ u_0000000001_InstrMem0000000001.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
-    #/ u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;  // mem[0] = R[0] = 0x14
-    #/ u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;  // Jump to I2
-    #/ u_0000000001_InstrMem0000000001.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
-    #/ u_0000000001_InstrMem0000000001.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
-    #/ u_0000000001_InstrMem0000000001.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
-    #/ u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;   
+    # / u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0001;  // R[1] <= mem[8] (0xF)
+    # / u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;  // R[0] <= R2 + R0 = 3 + 1 = 0x4
+    # / u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0001_0000_0011_0000_0000;  // R[0] <= R1 - R[3] = 0xF-5 = 0xA (0xF)
+    # / u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;  // R[1] <= R[0] + R[8] = 0xA + 0xA = 0x14 
+    # / u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;  // Jump to I8
+    # / u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+    # / u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    # / u_0000000001_InstrMem0000000001.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
+    # / u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;  // mem[0] = R[0] = 0x14
+    # / u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;  // Jump to I2
+    # / u_0000000001_InstrMem0000000001.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    # / u_0000000001_InstrMem0000000001.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+    # / u_0000000001_InstrMem0000000001.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    # / u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;   
     
     
-    micro_instruction_memory_dict = {
-    '0' : '16\'b0001_0000_1100_0001',
-    '1' : '16\'b0010_0000_1100_0001',
-    '2' : '16\'b0011_0000_1100_0000',
-    '3' : '16\'b0100_0000_1100_0000',
-    '4' : '16\'b0101_0000_1100_0000',
-    '4' : '16\'b0101_0000_1100_0000',
-    '5' : '16\'b0110_0000_1100_0000',
-    '6' : '16\'b0111_0000_1100_0000',
-    '7' : '16\'b1000_0000_1100_0000',
-    '8' : '16\'b0000_1000_0001_0001',
-    '9' : '16\'b0000_0000_0000_1001',
-    '9' : '16\'b0000_0000_0000_1001',
-    '10' : '16\'b0001_0010_0100_0001',
-    '11' : '16\'b0000_1000_0001_0001',
-    '12' : '16\'b0000_0000_0000_1001',
-    '12' : '16\'b0000_0000_0000_1001',
-    '13' : '16\'b0010_0010_0100_0001',
-    '14' : '16\'b0000_1000_0001_0001',
-    '15' : '16\'b0000_0000_0000_1001',
-    '15' : '16\'b0000_0000_0000_1001',
-    '16' : '16\'b0011_0010_0100_0001',
-    '17' : '16\'b0000_1000_0001_0001',
-    '18' : '16\'b0000_0000_0000_1001',
-    '18' : '16\'b0000_0000_0000_1001',
-    '19' : '16\'b0100_0010_0100_0001',
-    '20' : '16\'b0000_1000_0001_0001',
-    '21' : '16\'b0000_0000_0000_1001',
-    '22' : '16\'b0101_0010_0100_0001',
-    '23' : '16\'b0000_1000_0001_0001',
-    '24' : '16\'b0000_0000_0000_1001',
-    '25' : '16\'b0110_0010_0100_0001',
-    '26' : '16\'b0000_1000_0001_0001',
-    '27' : '16\'b0000_0000_0000_1001',
-    '28' : '16\'b0111_0010_0100_0001',
-    '29' : '20\'b0010_0000_1000_0001_0000',
-    '30' : '20\'b0000_0000_0000_0000_1000',
-    '31' : '20\'b0001_0000_0010_0000_0001',
-    '32' :  '16\'b0000_0100_1001_0100',
-    '33' : '16\'b0000_0000_0000_0010',
-    '34' : '16\'b0000_0000_0000_0000',
-    '36' : '16\'b1100_0000_1100_0000',
-    '255' : '16\'b0000_0000_0000_0000',
-    }
-    
-    
-    # for index in micro_instruction_memory_dict.keys():
-    #     data = micro_instruction_memory_dict[index]
-    #     #/ u_0000000001_MicroInstrMem0000000001.mem[`index`] = `data`;
-    #     pass
+
     
     # enumerate micro_code_list
     address = 0
@@ -1289,6 +1250,7 @@ absolute_folder_path = r"D:\\ChannelCoding\\AutoGen\\Verilog\\Pipelined-Micropro
 moduleloader.set_naming_mode('SEQUENTIAL')  
 moduleloader.set_root_dir(folder_path)
 moduleloader.set_debug_mode(True)
+moduleloader.disEnableWarning()
 ModuleCPUTop(cpu_spec=my_cpu_spec)
 
 

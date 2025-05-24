@@ -177,31 +177,31 @@ def construct_micro_code_addr_list():
             i_micro_code_group += 1
             curr_addr += 1
         elif instruction_type == 'LOAD':
-            # micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
-            # micro_code_2 = '20\'b0000'+'0000'+'1000'
-            # micro_code_3 = '20\'b0001'+'0000'+'0010'+'0000'+'0001'
-            # opcode = '8\'b1000'+'0000'
-            # micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
-            # opcode_list [i_micro_code_group] = opcode
-            # micro_code_len_dict [i_micro_code_group] = '3\'b010'
-            # micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
-            # comments_list [i_micro_code_group] = ['load rd, [mem1]']
-            # i_micro_code_group += 1
-            # curr_addr += 3
-            
             micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
             micro_code_2 = '20\'b0000'+'0000'+'1000'
-            micro_code_4 = '24\'b1000_0000_0000_0000_0000_0000'
-            micro_code_5 = '24\'b1100_0000_0000_0000_0000_0000'
             micro_code_3 = '20\'b0001'+'0000'+'0010'+'0000'+'0001'
             opcode = '8\'b1000'+'0000'
             micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
             opcode_list [i_micro_code_group] = opcode
-            micro_code_len_dict [i_micro_code_group] = '3\'b100'
-            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3, micro_code_4, micro_code_5]
+            micro_code_len_dict [i_micro_code_group] = '3\'b010'
+            micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3]
             comments_list [i_micro_code_group] = ['load rd, [mem1]']
             i_micro_code_group += 1
-            curr_addr += 5
+            curr_addr += 3
+            
+            # micro_code_1 = '20\'b0010'+'0000'+'1000'+'0001'+'0000'
+            # micro_code_2 = '20\'b0000'+'0000'+'1000'
+            # micro_code_4 = '24\'b1000_0000_0000_0000_0000_0000'
+            # micro_code_5 = '24\'b1100_0000_0000_0000_0000_0000'
+            # micro_code_3 = '20\'b0001'+'0000'+'0010'+'0000'+'0001'
+            # opcode = '8\'b1000'+'0000'
+            # micro_code_addr_list [i_micro_code_group] = '8\'b'+int_to_8bit_binary(curr_addr)
+            # opcode_list [i_micro_code_group] = opcode
+            # micro_code_len_dict [i_micro_code_group] = '3\'b100'
+            # micro_code_list [i_micro_code_group] = [micro_code_1, micro_code_2, micro_code_3, micro_code_4, micro_code_5]
+            # comments_list [i_micro_code_group] = ['load rd, [mem1]']
+            # i_micro_code_group += 1
+            # curr_addr += 5
             
             
         elif instruction_type == 'STORE':
