@@ -471,6 +471,7 @@ JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpecula
 //      begin
 //          micro_code_addr_reg <= micro_code_addr_in;
 //          // micro_code_cnt_reg <= micro_code_cnt_in;
+
 //          cu_instruction_reg <= instr_cu_in;
 //          instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
 //          branch_instr_address_reg <= branch_instr_address_de_cu;

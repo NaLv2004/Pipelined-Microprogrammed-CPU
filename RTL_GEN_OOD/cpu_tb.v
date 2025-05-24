@@ -184,20 +184,22 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
    #10 rst = 0;
  end
  initial begin
- u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010;
- u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
- u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0010_0000_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;
- u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;
+ // u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0010;  // reg[2] <= mem[8]; 
+ u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0000;  // reg[0] <= mem[8];   
+ u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;  // reg[0] <= reg[0] + reg[1]; (reg[0]=3)
+ u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0010_0000_0000_0000_0000;  // reg[0] <= reg[2] - reg[0]; (reg[0]=C)
+ u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;  // reg[1] <= reg[0] + reg[8]; (reg[1]=0xC +0xA=0x16)
+ u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;  // jump to I[8]
  u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
  u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
  u_0000000001_InstrMem0000000001.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
- u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;
- u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;
+ u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;  // mem[0] <= reg[0]; (mem[0]=C)
+ u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;  // jump to I2  
  u_0000000001_InstrMem0000000001.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
  u_0000000001_InstrMem0000000001.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
  u_0000000001_InstrMem0000000001.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
  u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+ // I[0]: r0 = 0xF -> I[1]: r0 = 0xF + 2 = 0x11 -> I[2]: r0 = r2 - 0x11 = 3-0x11 = FFF2 -> I3: r1 = FFF2 + 0xA = FFFC
  // ['add rd, rs1, rs2'];
  u_0000000001_MicroInstrMem0000000001.mem[0] = 16'b0001000011000001;
  // ['sub rd, rs1, rs2'];
@@ -337,7 +339,6 @@ ALU0000000001  u_0000000001_ALU0000000001(.clk(clk), .alu_regfile_in_1(register_
  end
  endmodule
 
-
 // === Contents from: CU0000000001.v ===
  module CU0000000001 (
      input  clk,
@@ -425,29 +426,48 @@ JudgeNotConflictSpeculativeFetch0000000001  u_0000000001_JudgeNotConflictSpecula
      micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
  end
  if ((rst==0) && (!flush_pipeline)) begin    // if no reset signal or pipeline flush
-     if (o_exec_ready_combined) begin
-         if (micro_code_cnt_reg == 3'b0) begin    // if micro_code_cnt_reg == 0, renew the register (fetch a novel normal instruction)
-             instruction_normal_reg <= instr_cu_in;
-             micro_code_cnt_reg <= micro_code_cnt_in;
-             micro_code_addr_reg <= micro_code_addr_in;
-         end
-         else if (micro_code_cnt_reg > 0) begin
-             micro_code_cnt_reg <= micro_code_cnt_reg - 1;
-             micro_code_addr_reg <= micro_code_addr_reg + 1;
-             micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
-         end
-         cu_instruction_reg <= instr_cu_in;
-         instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
-         branch_instr_address_reg <= branch_instr_address_de_cu;
-         branch_prediction_result_reg <= branch_prediction_result_de_cu;
-     end else begin
-         if (micro_code_cnt_reg > 3'b0)
-         begin
-             micro_code_cnt_reg <= micro_code_cnt_reg-1;
-             micro_code_addr_reg <= micro_code_addr_reg+1;
-             micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
-         end
-     end
+    if (micro_code_cnt_reg == 3'b0) begin
+        instruction_normal_reg <= instr_cu_in;
+        micro_code_cnt_reg <= micro_code_cnt_in;
+        micro_code_addr_reg <= micro_code_addr_in;
+        micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+        cu_instruction_reg <= instr_cu_in;
+        instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+        branch_instr_address_reg <= branch_instr_address_de_cu;
+        branch_prediction_result_reg <= branch_prediction_result_de_cu;
+    end else if (micro_code_cnt_reg > 0) begin
+        cu_instruction_reg <= instr_cu_in;
+        instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+        branch_instr_address_reg <= branch_instr_address_de_cu;
+        branch_prediction_result_reg <= branch_prediction_result_de_cu;
+        micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+        micro_code_addr_reg <= micro_code_addr_reg + 1;
+        micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+    end
+    
+    //  if (o_exec_ready_combined) begin
+    //      if (micro_code_cnt_reg == 3'b0) begin    // if micro_code_cnt_reg == 0, renew the register (fetch a novel normal instruction)
+    //          instruction_normal_reg <= instr_cu_in;
+    //          micro_code_cnt_reg <= micro_code_cnt_in;
+    //          micro_code_addr_reg <= micro_code_addr_in;
+    //      end
+    //      else if (micro_code_cnt_reg > 0) begin
+    //          micro_code_cnt_reg <= micro_code_cnt_reg - 1;
+    //          micro_code_addr_reg <= micro_code_addr_reg + 1;
+    //          micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+    //      end
+        //  cu_instruction_reg <= instr_cu_in;
+        //  instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
+        //  branch_instr_address_reg <= branch_instr_address_de_cu;
+        //  branch_prediction_result_reg <= branch_prediction_result_de_cu;
+    //  end else begin
+    //      if (micro_code_cnt_reg > 3'b0)
+    //      begin
+    //          micro_code_cnt_reg <= micro_code_cnt_reg-1;
+    //          micro_code_addr_reg <= micro_code_addr_reg+1;
+    //          micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+    //      end
+    //  end
  end
  end
  endmodule
