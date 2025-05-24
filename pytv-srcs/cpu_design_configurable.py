@@ -12,6 +12,7 @@ from os.path import dirname, abspath
 import math
 from parse_asembly import assemble
 from generate_micro_code import construct_micro_code_addr_list  
+from run_iverilog import run_iverilog_flow
 
 
 # from PyTU import QuMode, OfMode, QuType
@@ -669,7 +670,8 @@ def ModuleCU(cpu_spec):
     #/     output o_exec_ready_combined,
     #/     output o_exec_ready_normal,
     #/     output [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_out,
-    #/     output [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch
+    #/     output [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch,
+    #/     output [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_out_external_mem
     #/     );
     #/ wire clk;
     #/ wire rst;
@@ -680,6 +682,7 @@ def ModuleCU(cpu_spec):
     #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_in_speculative;
     #/ wire [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface;
     #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_out_external_mem;
     #/ // assign inner wires to de_cu_interface ports (input)
     idecode_cu_interface_port_mapping = {
     'instr_out': 'instr_cu_in',
@@ -704,6 +707,8 @@ def ModuleCU(cpu_spec):
         #/ wire [`port_width-1`:0] `cu_output_port`;
         #/ assign cu_alu_interface[`high_bit`:`low_bit`] = `cu_output_port`;
     #/ wire [`cpu_spec.instruction_data_width-1`:0]  instruction_normal;
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0]  micro_code_fused;
+    #/ reg [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_fused_reg;
     #/ reg [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_reg;
     #/ reg [`cpu_spec.micro_instruction_cnt_width-1`:0] micro_code_cnt_reg;
     #/ reg [`cpu_spec.micro_instruction_addr_width-1`:0] micro_code_addr_speculative_fetch_reg;
@@ -714,59 +719,68 @@ def ModuleCU(cpu_spec):
     #/ reg branch_prediction_result_reg;
     #/ reg exec_combined_reg;
     #/ reg [`cpu_spec.instruction_data_width-1`:0] instruction_normal_reg;
+    #/ reg [`cpu_spec.micro_instruction_cnt_width-1`:0] micro_code_cnt_reg_pre;
     #/ assign instr_address_not_taken_cu_alu = instr_address_not_taken_reg;
-    #/ assign micro_code_addr_out = micro_code_addr_reg;
-    #/ assign micro_code_addr_speculative_fetch = micro_code_addr_speculative_fetch_reg;
+    #/ assign micro_code_addr_out = (micro_code_cnt_reg > 3'b0) ? (micro_code_addr_reg+1) : micro_code_addr_in;
+    #/ assign micro_code_addr_speculative_fetch = micro_code_addr_in;
     #/ assign branch_instr_address_cu_alu = branch_instr_address_reg;
     #/ assign branch_prediction_result_cu_alu = branch_prediction_result_reg;
     #/ assign instr_cu_out = cu_instruction_reg;
     #/ assign instruction_normal = instruction_normal_reg;
     #/ assign o_exec_ready_normal = (micro_code_cnt_reg==3'b0) ? 1'b1 : 1'b0;  
+    #/ assign micro_code_out_external_mem = micro_code_out;
     ports_judge_not_conflict_speculative_fetch = {
         'micro_code_normal': 'micro_code_in_normal',
        'micro_code_speculative': 'micro_code_in_speculative',
         'instruction_normal': 'instruction_normal',
-        'instruction_speculative': 'instr_cu_out',
+        'instruction_speculative': 'instr_cu_in',
         'is_micro_code_not_conflict': 'o_exec_ready_speculative_fetch',
         'micro_instruction_cnt_speculative': 'micro_code_cnt_in'
     }
     ModuleJudgeNotConflictSpeculativeFetch(cpu_spec=cpu_spec, PORTS = ports_judge_not_conflict_speculative_fetch)
     #/ assign o_exec_ready_combined = o_exec_ready_normal | o_exec_ready_speculative_fetch;
     #/ // fused micro-code 
-    #/ assign micro_code_out = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
+    #/ assign micro_code_fused = (o_exec_ready_speculative_fetch)? (micro_code_in_normal ^ micro_code_in_speculative): micro_code_in_normal;
+    #/ assign micro_code_out = micro_code_fused_reg;
     #/ // CU is ready to receive new micro-code address when micro-code-reg == 0 (all the micro-codes executed)
     
     #/ always @ (posedge clk or negedge rst)
     #/ begin
+    #/ if (rst) begin
+    #/     micro_code_cnt_reg_pre <= `cpu_spec.micro_instruction_cnt_width`'b0;
+    #/ end else begin
+    #/     micro_code_cnt_reg_pre <= micro_code_cnt_reg;
+    #/ end
     #/ exec_combined_reg <= o_exec_ready_combined;
     #/ if (rst || flush_pipeline) begin
-    #/    micro_code_cnt_reg <= 3'b0;
-    #/    micro_code_addr_reg <= 8'b1111_1111;
-    #/    cu_instruction_reg <= 32'b0;
-    #/    instruction_normal_reg <= 32'b0;
-    #/    instr_address_not_taken_reg <= 8'b0;
-    #/    branch_instr_address_reg <= 8'b0;
-    #/    branch_prediction_result_reg <= 1'b0;
-    #/    micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+    #/     micro_code_cnt_reg <= 3'b0;
+    #/     micro_code_addr_reg <= 8'b1111_1111;
+    #/     cu_instruction_reg <= 32'b0;
+    #/     instruction_normal_reg <= 32'b0;
+    #/     instr_address_not_taken_reg <= 8'b0;
+    #/     branch_instr_address_reg <= 8'b0;
+    #/     branch_prediction_result_reg <= 1'b0;
+    #/     micro_code_addr_speculative_fetch_reg <= 8'b1111_1111;
+    #/     micro_code_fused_reg <= 32'b0;
     #/end
     #/if ((rst==0) && (!flush_pipeline)) begin    // if no reset signal or pipeline flush
     #/if (micro_code_cnt_reg == 3'b0) begin
     #/    instruction_normal_reg <= instr_cu_in;
     #/    micro_code_cnt_reg <= micro_code_cnt_in;
-    #/    micro_code_addr_reg <= micro_code_addr_in;
-    #/    micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+    #/    micro_code_addr_reg <= micro_code_addr_out;
     #/    cu_instruction_reg <= instr_cu_in;
     #/    instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
     #/    branch_instr_address_reg <= branch_instr_address_de_cu;
     #/    branch_prediction_result_reg <= branch_prediction_result_de_cu;
+    #/    micro_code_fused_reg <= micro_code_fused;
     #/end else if (micro_code_cnt_reg > 0) begin
     #/    cu_instruction_reg <= instr_cu_in;
     #/    instr_address_not_taken_reg <= instr_address_not_taken_de_cu;
     #/    branch_instr_address_reg <= branch_instr_address_de_cu;
     #/    branch_prediction_result_reg <= branch_prediction_result_de_cu;
     #/    micro_code_cnt_reg <= micro_code_cnt_reg - 1;
-    #/    micro_code_addr_reg <= micro_code_addr_reg + 1;
-    #/    micro_code_addr_speculative_fetch_reg <= micro_code_addr_in;
+    #/    micro_code_addr_reg <= micro_code_addr_out;
+    #/    micro_code_fused_reg <= micro_code_fused;
     #/    end
     #/ end
     #/ end
@@ -938,7 +952,7 @@ def ModuleCPUTop(cpu_spec):
     #/ wire [`cpu_spec.idecode_cu_interface_width-1`:0] idecode_cu_interface;
     #/ wire [`cpu_spec.cu_alu_interface_width-1`:0] cu_alu_interface;
     #/ wire [`cpu_spec.alu_fetch_interface_width-1`:0] alu_fetch_interface;
-    #/ 
+    #/ wire [`cpu_spec.micro_instruction_data_width-1`:0] micro_code_cu_external_mem;
     #/ assign mem_external_test1 = u_0000000001_RegisterFile0000000001.mem[1];
     
     ports_fetch ={
@@ -982,7 +996,8 @@ def ModuleCPUTop(cpu_spec):
         'o_exec_ready_combined':'exec_ready', #
         'flush_pipeline':'flush_pipeline', #
         'idecode_cu_interface':'idecode_cu_interface', #
-        'cu_alu_interface':'cu_alu_interface' #
+        'cu_alu_interface':'cu_alu_interface', #
+        'micro_code_out_external_mem':'micro_code_cu_external_mem'
     }
     
     ModuleCU(cpu_spec=cpu_spec,PORTS=ports_cu)
@@ -1025,7 +1040,7 @@ def ModuleCPUTop(cpu_spec):
     
     ports_external_mem ={
         'clk':'clk',
-        'micro_code':'micro_code',
+        'micro_code':'micro_code_cu_external_mem',
         'addr':'address_memory_alu',
         'data_in':'alu_result',
         'data_out':'data_memory_alu',
@@ -1127,11 +1142,24 @@ def ModuleCPUTop(cpu_spec):
     # print(my_assemble)
     
     #/ initial begin
-    for i in range(len(instruction_memory_list)):
-        #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`instruction_memory_list[i]`;
-        pass
+    # for i in range(len(instruction_memory_list)):
+    #     #/ u_0000000001_InstrMem0000000001.mem[`i`] = `cpu_spec.instruction_data_width`'b`instruction_memory_list[i]`;
+    #     pass
         
-        
+    #/ u_0000000001_InstrMem0000000001.mem[0] = 32'b1000_0000_0000_1000_0000_0000_0000_0001;  // R[1] <= mem[8] (0xF)
+    #/ u_0000000001_InstrMem0000000001.mem[1] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;  // R[0] <= R2 + R0 = 3 + 1 = 0x4
+    #/ u_0000000001_InstrMem0000000001.mem[2] = 32'b0000_0010_0000_0001_0000_0011_0000_0000;  // R[0] <= R1 - R[3] = 0xF-5 = 0xA (0xF)
+    #/ u_0000000001_InstrMem0000000001.mem[3] = 32'b0000_0001_0000_1000_0000_0000_0000_0001;  // R[1] <= R[0] + R[8] = 0xA + 0xA = 0x14 
+    #/ u_0000000001_InstrMem0000000001.mem[4] = 32'b0100_0000_0001_0000_0000_0000_0000_0000;  // Jump to I8
+    #/ u_0000000001_InstrMem0000000001.mem[5] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+    #/ u_0000000001_InstrMem0000000001.mem[6] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    #/ u_0000000001_InstrMem0000000001.mem[7] = 32'b0000_0001_0000_0000_0000_0010_0000_0000; 
+    #/ u_0000000001_InstrMem0000000001.mem[8] = 32'b1000_0001_0000_0000_0000_0000_0000_0000;  // mem[0] = R[0] = 0x14
+    #/ u_0000000001_InstrMem0000000001.mem[9] = 32'b0110_0000_0000_0011_0000_0011_0000_0100;  // Jump to I2
+    #/ u_0000000001_InstrMem0000000001.mem[10] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    #/ u_0000000001_InstrMem0000000001.mem[11] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;
+    #/ u_0000000001_InstrMem0000000001.mem[12] = 32'b0000_0001_0000_0000_0000_0001_0000_0000;
+    #/ u_0000000001_InstrMem0000000001.mem[13] = 32'b0000_0001_0000_0000_0000_0010_0000_0000;   
     
     
     micro_instruction_memory_dict = {
@@ -1255,9 +1283,11 @@ def ModuleCPUTop(cpu_spec):
     #/ endmodule
     pass
     
-    
+
+folder_path = 'RTL_GEN_0524' 
+absolute_folder_path = r"D:\\ChannelCoding\\AutoGen\\Verilog\\Pipelined-Microprogrammed-CPU\\RTL_GEN_0524"
 moduleloader.set_naming_mode('SEQUENTIAL')  
-moduleloader.set_root_dir('RTL_GEN_OOD_NEW')
+moduleloader.set_root_dir(folder_path)
 moduleloader.set_debug_mode(True)
 ModuleCPUTop(cpu_spec=my_cpu_spec)
 
@@ -1265,7 +1295,6 @@ ModuleCPUTop(cpu_spec=my_cpu_spec)
 
 import os
 
-folder_path = 'RTL_GEN_OOD_NEW'
 # 定义输出的新文件名
 output_filename = 'cpu_tb.v'
 
@@ -1276,7 +1305,7 @@ file_list = [
 ]
 
 # 按文件名排序（可选，根据需求决定是否保留）
-file_list.sort()
+# file_list.sort()
 
 # 写入合并内容
 with open(os.path.join(folder_path, output_filename), 'w', errors='ignore') as outfile:
@@ -1286,6 +1315,9 @@ with open(os.path.join(folder_path, output_filename), 'w', errors='ignore') as o
             outfile.write(f"// === Contents from: {filename} ===\n")
             outfile.write(infile.read())
             outfile.write("\n\n")  # 添加两个换行作为文件分隔符
+            
+            
+# run iverilog to compile the generated verilog code and show waveform
 
-
+run_iverilog_flow(absolute_folder_path)
 
